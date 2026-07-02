@@ -8,7 +8,6 @@ document.addEventListener('DOMContentLoaded', () => {
   initScrollAnimations();
   initCalendar();
   initGallery();
-  initAudioPlayerSim();
   initPrayerRequestSystem();
   initLottieAnimations();
   initDonationClipboard();
@@ -365,41 +364,7 @@ function initGallery() {
 /* ==========================================================================
    SIMULADOR DE REPRODUCTOR DE AUDIO (LOVE ADORA)
    ========================================================================== */
-function initAudioPlayerSim() {
-  const playBtn = document.querySelector('.play-sim-btn');
-  const progressFill = document.querySelector('.progress-fill-sim');
-  const trackTitle = document.querySelector('.track-details h5');
-  const trackArtist = document.querySelector('.track-details p');
 
-  if (!playBtn) return;
-
-  let isPlaying = false;
-  let progressPercent = 12;
-  let simInterval = null;
-
-  playBtn.addEventListener('click', () => {
-    isPlaying = !isPlaying;
-    const icon = playBtn.querySelector('i');
-
-    if (isPlaying) {
-      icon.className = 'fas fa-pause';
-      trackTitle.textContent = "Glorioso Salvador (Love Adora Live)";
-      trackArtist.style.color = "#a29bfe";
-      
-      simInterval = setInterval(() => {
-        progressPercent += 0.4;
-        if (progressPercent >= 100) {
-          progressPercent = 0;
-        }
-        progressFill.style.width = `${progressPercent}%`;
-      }, 250);
-    } else {
-      icon.className = 'fas fa-play';
-      trackArtist.style.color = "rgba(255, 255, 255, 0.5)";
-      clearInterval(simInterval);
-    }
-  });
-}
 
 /* ==========================================================================
    SISTEMA DE PETICIONES DE ORACIÓN & REFLEXIÓN (LOCAL STORAGE)
