@@ -1,0 +1,79 @@
+# ==============================================================================
+# GITIGNORE - COMUNIDAD LOVE CARTAGENA
+# ==============================================================================
+
+# OS-specific files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+# IDEs and text editors
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# Node modules / dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# ==============================================================================
+# ASSETS FILTERING (Keep only used/needed files)
+# ==============================================================================
+
+# Ignore all files under assets recursively
+ComunidadLoveWeb/Assets/**/*
+
+# Re-allow directory traversal for assets subfolders
+!ComunidadLoveWeb/Assets/
+!ComunidadLoveWeb/Assets/LOVE - KIDS/
+!ComunidadLoveWeb/Assets/Love adora/
+!ComunidadLoveWeb/Assets/MERCHANDISING/
+!ComunidadLoveWeb/Assets/somos comunidad love/
+
+# Keep only used assets in the root of Assets folder
+!ComunidadLoveWeb/Assets/logo-color.png
+!ComunidadLoveWeb/Assets/logo-blanco.png
+!ComunidadLoveWeb/Assets/portada.jpg
+!ComunidadLoveWeb/Assets/familia pastoral.jpg
+!ComunidadLoveWeb/Assets/love_kids.png
+!ComunidadLoveWeb/Assets/LoveWoman.png
+!ComunidadLoveWeb/Assets/Perfil-IG.jpg
+!ComunidadLoveWeb/Assets/Perfil-whatsapp.jpg
+
+# Keep only used assets in LOVE - KIDS
+!ComunidadLoveWeb/Assets/LOVE - KIDS/logo-love-kids.png
+!ComunidadLoveWeb/Assets/LOVE - KIDS/logo-love-kids.jpg
+
+# Keep only used assets in Love adora
+!ComunidadLoveWeb/Assets/Love adora/love adora (1).jpg
+!ComunidadLoveWeb/Assets/Love adora/love adora (2).jpg
+!ComunidadLoveWeb/Assets/Love adora/love adora (3).jpg
+!ComunidadLoveWeb/Assets/Love adora/love adora (4).jpg
+!ComunidadLoveWeb/Assets/Love adora/love adora (5).jpg
+!ComunidadLoveWeb/Assets/Love adora/love adora (6).jpg
+!ComunidadLoveWeb/Assets/Love adora/love adora (7).jpg
+
+# Keep only used assets in MERCHANDISING
+!ComunidadLoveWeb/Assets/MERCHANDISING/01.jpg
+!ComunidadLoveWeb/Assets/MERCHANDISING/02.jpg
+!ComunidadLoveWeb/Assets/MERCHANDISING/03.jpg
+!ComunidadLoveWeb/Assets/MERCHANDISING/04.jpg
+
+# Keep only used assets in somos comunidad love (optimized .jpeg versions)
+!ComunidadLoveWeb/Assets/somos comunidad love/love comunidad (1).jpeg
+!ComunidadLoveWeb/Assets/somos comunidad love/love comunidad (2).jpeg
+!ComunidadLoveWeb/Assets/somos comunidad love/love comunidad (3).jpeg
+!ComunidadLoveWeb/Assets/somos comunidad love/love comunidad (4).jpeg
+!ComunidadLoveWeb/Assets/somos comunidad love/love comunidad (5).jpeg
+!ComunidadLoveWeb/Assets/somos comunidad love/love comunidad (6).jpeg
+!ComunidadLoveWeb/Assets/somos comunidad love/love comunidad (7).jpeg

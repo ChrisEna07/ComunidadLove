@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Comunidad Love es una iglesia cristiana en Cartagena, Colombia, dedicada al crecimiento espiritual, la familia y el servicio comunitario. Conoce nuestros horarios de servicios, eventos y espacios de reflexión.">
+  <meta name="keywords" content="iglesia cristiana Cartagena, Comunidad Love, pastores Cartagena, peticiones de oracion, actividades niños, grupo de alabanza Cartagena, fe, amor">
+  <title>Comunidad Love | Cartagena - Un lugar para amar y ser amado</title>
+  
+  <!-- CSS Stylesheet -->
+  <link rel="stylesheet" href="./style.css">
+  
+  <!-- FontAwesome Icons CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Leaflet Map CSS CDN -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+</head>
+<body>
+
+  <!-- ==========================================================================
+       HEADER & NAVIGATION
+       ========================================================================== -->
+  <header>
+    <div class="container nav-container">
+      <a href="#" class="logo">
+        <img src="./Assets/logo-color.png" alt="Comunidad Love Logo">
+        <div class="logo-text">Comunidad <span>Love</span></div>
+      </a>
+      
+      <nav class="nav-menu">
+        <a href="#" class="nav-link active">Inicio</a>
+        <a href="#nosotros" class="nav-link">Nosotros</a>
+        <a href="#pastores" class="nav-link">Pastores</a>
+        <a href="#calendario" class="nav-link">Servicios</a>
+        <a href="#eventos" class="nav-link">Galería</a>
+        <a href="#ministerios" class="nav-link">Ministerios</a>
+        <a href="#market" class="nav-link">Market</a>
+        <a href="#donaciones" class="nav-link">Donar</a>
+        <a href="#reflexion" class="nav-link nav-btn">Oración</a>
+      </nav>
+      
+      <div class="menu-toggle">
+        <i class="fas fa-bars"></i>
+      </div>
+    </div>
+  </header>
+
+  <!-- ==========================================================================
+       HERO & LANDING SECTION
+       ========================================================================== -->
+  <section class="hero">
+    <div class="hero-bg-shapes">
+      <div class="shape shape-1"></div>
+      <div class="shape shape-2"></div>
+    </div>
+    
+    <div class="container hero-grid">
+      <div class="hero-content reveal">
+        <span class="hero-tag">
+          <img src="./Assets/Perfil-whatsapp.jpg" alt="Corazón Comunidad Love" class="hero-heart-pulse">
+          Cartagena, Colombia
+        </span>
+        <h1 class="hero-title">Un lugar para <span>amar</span> y ser <span>amado</span></h1>
+        <p class="hero-description">Somos una comunidad cristiana apasionada por Dios, las familias y las personas. Acompáñanos a adorar, crecer y compartir juntos en Cartagena.</p>
+        
+        <div class="hero-buttons">
+          <a href="#calendario" class="btn btn-primary">Horarios de Reunión</a>
+          <a href="#reflexion" class="btn btn-secondary">Pedir Oración <i class="fas fa-arrow-right"></i></a>
+        </div>
+        
+        <!-- Verse Rotator Widget -->
+        <div class="verse-widget">
+          <p class="verse-text">"Cargando versículo de esperanza..."</p>
+          <span class="verse-ref">-</span>
+          <button class="verse-refresh-btn" aria-label="Cambiar versículo">
+            <i class="fas fa-sync-alt"></i>
+          </button>
+        </div>
+      </div>
+      
+      <div class="hero-media reveal reveal-delay-2">
+        <div class="hero-media-wrapper">
+          <!-- Lottie Animation Container -->
+          <div id="hero-lottie" style="width: 100%; height: 380px;"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================================
+       SECTION: NOSOTROS
+       ========================================================================== -->
+  <section id="nosotros" class="section about">
+    <div class="container">
+      <div class="section-title reveal">Nuestra Comunidad</div>
+      <div class="heart-divider reveal reveal-delay-1">
+        <img src="./Assets/Perfil-IG.jpg" alt="Corazón Comunidad Love">
+      </div>
+      <div class="section-subtitle reveal reveal-delay-2">Descubre quiénes somos, nuestra historia y lo que nos impulsa cada día en Cartagena.</div>
+      
+      <div class="about-grid">
+        <div class="about-info reveal">
+          <h3>Fundada en el Amor</h3>
+          <p class="about-desc">Comunidad Love fue fundada en el año 2018 en Cartagena de Indias con el propósito firme de levantar una gran familia de fe donde cada persona, sin importar su trasfondo, pueda experimentar el amor incondicional de Dios y encontrar su propósito de vida.</p>
+          <p class="about-desc">Creemos firmemente en una fe activa que transforma ciudades y restaura hogares mediante los valores del evangelio, la solidaridad y la excelencia en el servicio a los demás.</p>
+          
+          <div class="about-features">
+            <div class="feature-box">
+              <i class="fas fa-heart"></i>
+              <h4>Amor Práctico</h4>
+              <p>Amamos porque Él nos amó primero. Vivimos una fe expresada en servicio social y restauración familiar.</p>
+            </div>
+            <div class="feature-box">
+              <i class="fas fa-users"></i>
+              <h4>Comunidad</h4>
+              <p>Ningún creyente está diseñado para caminar solo. Nos conectamos y crecemos juntos semana a semana.</p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Interactive Map and Video Card -->
+        <div class="about-map-card reveal reveal-delay-2">
+          <div class="location-tabs">
+            <button type="button" class="location-tab active" data-target="map"><i class="fas fa-map-marked-alt"></i> Ver Mapa</button>
+            <button type="button" class="location-tab" data-target="video"><i class="fab fa-instagram"></i> ¿Cómo llegar? (Video)</button>
+          </div>
+          
+          <div class="location-content">
+            <div id="location-map-wrapper" class="tab-content active">
+              <div id="leaflet-map" class="map-placeholder"></div>
+            </div>
+            
+            <div id="location-video-wrapper" class="tab-content">
+              <div class="instagram-reel-container">
+                <iframe src="https://www.instagram.com/reel/DUJ_XbJkbjJ/embed/" frameborder="0" scrolling="no" allowtransparency="true" allow="encrypted-media" style="width:100%; height:520px; border:none; border-radius:var(--border-radius-md);"></iframe>
+              </div>
+            </div>
+          </div>
+          
+          <div style="margin-top: 15px; text-align: center;">
+            <p style="font-weight: 600; color: var(--secondary);"><i class="fas fa-map-marker-alt" style="color:var(--primary); margin-right: 6px;"></i> Dirección</p>
+            <p style="font-size: 0.9rem; color: var(--text-muted);">Avenida Pedro de Heredia, Sector Pie de la Popa, Cartagena</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================================
+       SECTION: PASTORES (LA FAMILIA LOVE)
+       ========================================================================== -->
+  <section id="pastores" class="section pastors">
+    <div class="container">
+      <div class="section-title reveal">Pastores Comunidad Love</div>
+      <div class="heart-divider reveal reveal-delay-1">
+        <img src="./Assets/Perfil-whatsapp.jpg" alt="Corazón Comunidad Love">
+      </div>
+      <div class="section-subtitle reveal reveal-delay-2">Te presentamos a la familia pastoral que guía y sirve con amor a nuestra congregación.</div>
+      
+      <div class="pastors-layout">
+        <div class="pastors-image-wrapper reveal">
+          <img src="./Assets/familia pastoral.jpg" alt="Pastores James y Zuleima Andrade con su familia">
+          <div class="pastors-image-overlay">
+            <div class="pastors-name">Familia Pastoral Andrade Ruiz</div>
+            <div class="pastors-title">Líderes y fundadores</div>
+          </div>
+        </div>
+        
+        <div class="pastors-info reveal reveal-delay-2">
+          <h3>Nuestros Pastores</h3>
+          <p class="about-desc">Comunidad Love es liderada por los pastores <strong>James</strong> y <strong>Zuleima Andrade</strong>, quienes han dedicado sus vidas al servicio del ministerio en Colombia. Junto a sus amados hijos, <strong>Aron</strong>, <strong>Aitana</strong> y <strong>Ariadna Andrade Ruiz</strong>, conforman un equipo familiar enfocado en consolidar hogares saludables y guiar a la comunidad cartagenera hacia una fe práctica y llena de amor.</p>
+          
+          <p class="pastors-quote">"Nuestra visión es ver a Cartagena transformada por el amor de Dios, restaurando una familia a la vez. Creemos que cada vida tiene un valor incalculable para el Padre."</p>
+          
+          <div class="pastors-family-members">
+            <h4 style="margin-bottom: 16px; color: var(--secondary);">Familia Ministerial</h4>
+            <div class="family-grid">
+              <div class="family-member-card">
+                <i class="fas fa-user-tie"></i>
+                <h5>Pstr. James</h5>
+                <span>Pastor Principal</span>
+              </div>
+              <div class="family-member-card">
+                <i class="fas fa-user-nurse"></i>
+                <h5>Pstra. Zuleima</h5>
+                <span>Pastora Principal</span>
+              </div>
+              <div class="family-member-card">
+                <i class="fas fa-users-rectangle"></i>
+                <h5>Aron, Aitana & Ariadna</h5>
+                <span>Hijos & Líderes</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================================
+       SECTION: CALENDARIO DE SERVICIOS
+       ========================================================================== -->
+  <section id="calendario" class="section calendar-section">
+    <div class="container">
+      <div class="section-title reveal">Calendario de Actividades</div>
+      <div class="heart-divider reveal reveal-delay-1">
+        <img src="./Assets/Perfil-IG.jpg" alt="Corazón Comunidad Love">
+      </div>
+      <div class="section-subtitle reveal reveal-delay-2">Descubre nuestros días de servicio y no te pierdas ningún evento especial de nuestra agenda mensual.</div>
+      
+      <div class="calendar-grid">
+        <div class="services-list reveal">
+          <h3 style="margin-bottom: 24px; color: var(--secondary);">Nuestras Reuniones</h3>
+          
+          <div class="service-card">
+            <div class="service-time"><i class="far fa-clock"></i> Domingos - 9:00 AM</div>
+            <h4>Domingo Familia</h4>
+            <p>Nuestra gran reunión general de adoración, comunión y enseñanza práctica de la Palabra para toda la familia.</p>
+          </div>
+          
+          <div class="service-card">
+            <div class="service-time"><i class="far fa-clock"></i> Miércoles - 7:00 PM</div>
+            <h4>Miércoles de Series</h4>
+            <p>Un espacio dinámico a mitad de semana dedicado a series temáticas de estudio bíblico con aplicaciones para el día a día.</p>
+          </div>
+          
+          <div class="service-card">
+            <div class="service-time"><i class="far fa-clock"></i> Sábados - Especiales del mes</div>
+            <h4>Servicios Especiales del Sábado</h4>
+            <p>Nuestros sábados están enfocados en ministerios específicos:</p>
+            <ul style="font-size: 0.85rem; margin-top: 8px; color: var(--text-muted); padding-left: 15px; list-style-type: disc;">
+              <li><strong>1er Sábado:</strong> Love Woman (Mujeres) - 5:00 PM</li>
+              <li><strong>2do y Último Sábado:</strong> Servicio de Jóvenes (Love Youth) - 6:00 PM</li>
+              <li><strong>Último Sábado:</strong> Servicio de Parejas - 7:30 PM</li>
+            </ul>
+          </div>
+        </div>
+        
+        <!-- Interactive Calendar Widget -->
+        <div class="calendar-container reveal reveal-delay-2">
+          <div class="calendar-header">
+            <button id="calendar-prev" class="calendar-nav-btn" aria-label="Mes anterior"><i class="fas fa-chevron-left"></i></button>
+            <h3 id="calendar-month-name">Julio 2026</h3>
+            <button id="calendar-next" class="calendar-nav-btn" aria-label="Mes siguiente"><i class="fas fa-chevron-right"></i></button>
+          </div>
+          
+          <div class="calendar-weekdays">
+            <div>Dom</div>
+            <div>Lun</div>
+            <div>Mar</div>
+            <div>Mié</div>
+            <div>Jue</div>
+            <div>Vie</div>
+            <div>Sáb</div>
+          </div>
+          
+          <div id="calendar-days" class="calendar-days">
+            <!-- Rendered by JS -->
+          </div>
+          
+          <div class="calendar-event-details">
+            <h4 id="event-detail-title"><i class="far fa-calendar-check" style="color:var(--primary);"></i> Selecciona un día</h4>
+            <p id="event-detail-desc">Haz clic en los días señalados con un punto para ver los horarios y descripciones de los servicios o actividades especiales.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================================
+       SECTION: EVENTOS LOVE (GALERÍA & VIDEOS)
+       ========================================================================== -->
+  <section id="eventos" class="section gallery-section">
+    <div class="container">
+      <div class="section-title reveal">Galería Eventos Love</div>
+      <div class="heart-divider reveal reveal-delay-1">
+        <img src="./Assets/Perfil-IG.jpg" alt="Corazón Comunidad Love">
+      </div>
+      <div class="section-subtitle reveal reveal-delay-2">Visualiza los momentos especiales que compartimos en nuestras actividades y ministerios en Cartagena.</div>
+      
+      <!-- Filter Tags -->
+      <div class="gallery-filters reveal">
+        <button class="filter-btn active" data-filter="all">Todos</button>
+        <button class="filter-btn" data-filter="comunidad">Comunidad</button>
+        <button class="filter-btn" data-filter="ninos">Love Kids</button>
+        <button class="filter-btn" data-filter="mujeres">Love Woman</button>
+        <button class="filter-btn" data-filter="adoracion">Love Adora</button>
+      </div>
+      
+      <!-- Image Grid -->
+      <div class="gallery-grid reveal reveal-delay-2">
+        <div class="gallery-item" data-category="comunidad">
+          <img src="./Assets/familia pastoral.jpg" alt="Pastores James y Zuleima en Comunidad">
+          <div class="gallery-overlay">
+            <span class="gallery-tag">Comunidad</span>
+            <div class="gallery-title">Nuestra Familia Pastoral</div>
+          </div>
+        </div>
+        
+        <div class="gallery-item" data-category="ninos">
+          <img src="./Assets/love_kids.png" alt="Actividad infantil Love Kids">
+          <div class="gallery-overlay">
+            <span class="gallery-tag">Love Kids</span>
+            <div class="gallery-title">Enseñanza Creativa infantil</div>
+          </div>
+        </div>
+        
+        <div class="gallery-item" data-category="mujeres">
+          <img src="./Assets/LoveWoman.png" alt="Reunión mujeres Love Woman">
+          <div class="gallery-overlay">
+            <span class="gallery-tag">Love Woman</span>
+            <div class="gallery-title">Reunión de Conexión de Mujeres</div>
+          </div>
+        </div>
+        
+        <div class="gallery-item" data-category="adoracion">
+          <img src="./Assets/Love adora/love adora (5).jpg" alt="Worship Love Adora">
+          <div class="gallery-overlay">
+            <span class="gallery-tag">Love Adora</span>
+            <div class="gallery-title">Tiempos de Adoración en la Presencia</div>
+          </div>
+        </div>
+
+        <!-- Nuevos items agregados para mayor interacción y uso de assets -->
+        <div class="gallery-item" data-category="comunidad">
+          <img src="./Assets/somos comunidad love/love comunidad (1).jpeg" alt="Reunión de Crecimiento">
+          <div class="gallery-overlay">
+            <span class="gallery-tag">Comunidad</span>
+            <div class="gallery-title">Reuniones de Conexión</div>
+          </div>
+        </div>
+
+        <div class="gallery-item" data-category="comunidad">
+          <img src="./Assets/somos comunidad love/love comunidad (2).jpeg" alt="Servicio de Comunión">
+          <div class="gallery-overlay">
+            <span class="gallery-tag">Comunidad</span>
+            <div class="gallery-title">Celebración Dominical</div>
+          </div>
+        </div>
+
+        <div class="gallery-item" data-category="adoracion">
+          <img src="./Assets/Love adora/love adora (6).jpg" alt="Alabanza y Gozo">
+          <div class="gallery-overlay">
+            <span class="gallery-tag">Love Adora</span>
+            <div class="gallery-title">Alabanza en Comunidad</div>
+          </div>
+        </div>
+
+        <div class="gallery-item" data-category="mujeres">
+          <img src="./Assets/somos comunidad love/love comunidad (5).jpeg" alt="Love Woman - Tarde de Café">
+          <div class="gallery-overlay">
+            <span class="gallery-tag">Love Woman</span>
+            <div class="gallery-title">Tarde de Compartir y Palabra</div>
+          </div>
+        </div>
+
+        <div class="gallery-item" data-category="comunidad">
+          <img src="./Assets/somos comunidad love/love comunidad (3).jpeg" alt="Tardes Familiares">
+          <div class="gallery-overlay">
+            <span class="gallery-tag">Comunidad</span>
+            <div class="gallery-title">Tiempos de Familia</div>
+          </div>
+        </div>
+
+        <div class="gallery-item" data-category="adoracion">
+          <img src="./Assets/Love adora/love adora (7).jpg" alt="Adoración Matutina">
+          <div class="gallery-overlay">
+            <span class="gallery-tag">Love Adora</span>
+            <div class="gallery-title">Entrega y Ministración</div>
+          </div>
+        </div>
+
+        <div class="gallery-item" data-category="comunidad">
+          <img src="./Assets/somos comunidad love/love comunidad (4).jpeg" alt="Caminando en Familia">
+          <div class="gallery-overlay">
+            <span class="gallery-tag">Comunidad</span>
+            <div class="gallery-title">Comunión y Hermandad</div>
+          </div>
+        </div>
+
+        <div class="gallery-item" data-category="ninos">
+          <img src="./Assets/LOVE - KIDS/logo-love-kids.jpg" alt="Logo Oficial Love Kids">
+          <div class="gallery-overlay">
+            <span class="gallery-tag">Love Kids</span>
+            <div class="gallery-title">Espacio Love Kids</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Video Feature Section -->
+      <div class="video-section reveal">
+        <h3 style="margin-bottom: 24px; text-align: center; color: var(--secondary);">Ver Nuestras Reuniones</h3>
+        <p style="text-align: center; color: var(--text-muted); max-width: 600px; margin: 0 auto 30px auto;">¿Te perdiste nuestra última celebración de fin de semana? Mírala completa a continuación y edifica tu vida con la música y el mensaje.</p>
+        
+        <div class="video-wrapper">
+          <iframe src="https://www.youtube.com/embed/kItYRbhPrI0?si=NyhHZn0I3-HAKyvC" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+        </div>
+        <div style="text-align: center; margin-top: 25px;">
+          <a href="https://youtube.com/@comunidadcristianalove?si=SVu02G2wBtLYnAYw" target="_blank" class="btn btn-secondary"><i class="fab fa-youtube"></i> Ir a Nuestro Canal en Vivo</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================================
+       SECTION: MINISTERIOS (KIDS, WOMAN, ADORA, BUENAS NUEVAS)
+       ========================================================================== -->
+  <section id="ministerios" class="section-container" style="padding-bottom:100px;">
+    
+    <!-- LOVE KIDS -->
+    <div class="section kids-section">
+      <div class="container">
+        <div class="kids-card reveal">
+          <div class="kids-content">
+            <span class="kids-badge">Espacio Infantil</span>
+            <h3>
+              <img src="./Assets/LOVE - KIDS/logo-love-kids.png" alt="Logo Love Kids" class="kids-logo-img">
+              <span>Kids</span>
+            </h3>
+            <p class="about-desc">Nuestra misión en Love Kids es sembrar principios bíblicos en el corazón de los más pequeños (de 2 a 11 años) a través de un lenguaje dinámico, lúdico y lleno de amor. Diseñamos un ambiente seguro e interactivo donde aprenden mediante juegos, artes plásticas y obras teatrales adaptadas a su edad.</p>
+            
+            <div class="kids-features">
+              <div class="kids-feat-box">
+                <i class="fas fa-child"></i>
+                <h4>Enseñanza Bíblica</h4>
+              </div>
+              <div class="kids-feat-box">
+                <i class="fas fa-shield-halved"></i>
+                <h4>Entorno Seguro</h4>
+              </div>
+            </div>
+          </div>
+          
+          <div class="kids-media-container">
+            <img src="./Assets/love_kids.png" alt="Love Kids niños jugando y aprendiendo" class="kids-main-img">
+            <div class="kids-logo-overlay">
+              <img src="./Assets/LOVE - KIDS/logo-love-kids.png" alt="Logo Love Kids">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- LOVE WOMAN -->
+    <div class="section woman-section">
+      <div class="container">
+        <div class="woman-card reveal">
+          <div class="woman-media-container">
+            <img src="./Assets/LoveWoman.png" alt="Love Woman grupo de mujeres compartiendo">
+          </div>
+          
+          <div class="woman-content">
+            <span class="woman-badge">Espacio de Mujeres</span>
+            <h3>Love <span>Woman</span></h3>
+            <p class="about-desc">Un ministerio diseñado especialmente para las mujeres de Cartagena. Buscamos inspirar, conectar y equipar a cada mujer para que descubra su verdadero valor e identidad en Dios. Realizamos congresos, talleres de emprendimiento, estudios de la palabra y hermosos círculos de oración y consejería.</p>
+            <p class="woman-quote">"Mujer virtuosa, ¿quién la hallará? Porque su estima sobrepasa largamente a la de las piedras preciosas." - Proverbios 31:10</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- LOVE ADORA -->
+    <div class="section adora-section">
+      <div class="container">
+        <div class="adora-card reveal">
+          <div class="adora-content">
+            <span class="adora-badge">Ministerio de Alabanza</span>
+            <h3>Love <span>Adora</span></h3>
+            <p class="adora-desc">Integrado por músicos, cantantes y técnicos dedicados a guiar a la congregación en una adoración íntima y apasionada. Creemos que la música es un canal maravilloso para conectarnos con el cielo. Trabajamos constantemente en la excelencia musical y en la preparación espiritual para cada servicio dominical.</p>
+            
+            <!-- Simulated Audio player widget -->
+            <div class="audio-player-sim">
+              <div class="player-info">
+                <div class="player-icon"><i class="fas fa-music"></i></div>
+                <div class="track-details">
+                  <h5>Escuchar demo musical</h5>
+                  <p>Presiona play para reproducir un fragmento</p>
+                </div>
+              </div>
+              <div class="player-controls">
+                <button class="play-sim-btn" aria-label="Reproducir demo"><i class="fas fa-play"></i></button>
+                <div class="progress-bar-sim">
+                  <div class="progress-fill-sim"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="adora-media-container">
+            <img src="./Assets/Love adora/love adora (1).jpg" alt="Love Adora Alabanza">
+            <img src="./Assets/Love adora/love adora (2).jpg" alt="Love Adora Adoración">
+            <img src="./Assets/Love adora/love adora (3).jpg" alt="Love Adora Músicos">
+            <img src="./Assets/Love adora/love adora (4).jpg" alt="Love Adora Voces">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LOVE BUENAS NUEVAS -->
+    <div class="section buenas-nuevas-section">
+      <div class="container">
+        <div class="news-card reveal">
+          <div class="news-media-grid">
+            <div class="news-media-card">
+              <img src="./Assets/somos comunidad love/love comunidad (6).jpeg" alt="Evangelismo Love Buenas Nuevas">
+            </div>
+            <div class="news-media-card">
+              <img src="./Assets/somos comunidad love/love comunidad (7).jpeg" alt="Visitas comunitarias y ayuda social">
+            </div>
+          </div>
+          
+          <div class="news-content">
+            <span class="news-badge">Evangelismo & Acción Social</span>
+            <h3>Love <span>Buenas Nuevas</span></h3>
+            <p class="about-desc">Nuestra pasión es llevar el mensaje de salvación a cada rincón de Cartagena. A través de visitas a hospitales, cárceles, comedores comunitarios y evangelismo en las calles, compartimos las buenas nuevas y el amor práctico de Jesús con quienes más lo necesitan.</p>
+            
+            <div class="news-stats">
+              <div class="stat-box">
+                <span class="stat-number">500+</span>
+                <span class="stat-label">Hogares Visitados</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-number">15+</span>
+                <span class="stat-label">Zonas e Impacto</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-number">80+</span>
+                <span class="stat-label">Voluntarios</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ==========================================================================
+       SECTION: LOVE MARKET (MERCHANDISING)
+       ========================================================================== -->
+  <section id="market" class="section market-section">
+    <div class="container">
+      <div class="section-title reveal">Love Market</div>
+      <div class="heart-divider reveal reveal-delay-1">
+        <img src="./Assets/Perfil-IG.jpg" alt="Corazón Comunidad Love">
+      </div>
+      <div class="section-subtitle reveal reveal-delay-2">Adquiere nuestros productos oficiales de merchandising y apoya los proyectos sociales de la Comunidad Love.</div>
+      
+      <div class="market-grid reveal reveal-delay-2">
+        <!-- Product 1 -->
+        <div class="product-card" data-desc="Hoodie premium con capucha y bolsillo delantero. Material ultra suave y duradero, estampado en alta definición con el logo de la Comunidad Love. Disponible en todas las tallas.">
+          <div class="product-image">
+            <span class="product-badge">Top Ventas</span>
+            <img src="./Assets/MERCHANDISING/01.jpg" alt="Hoodie Love Premium">
+          </div>
+          <div class="product-info">
+            <h4 class="product-title">Hoodie Love Premium</h4>
+            <div class="product-price">$85.000 COP</div>
+            <div class="product-actions">
+              <button class="btn btn-primary btn-view-details" style="width: 100%;">Detalles <i class="fas fa-eye"></i></button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Product 2 -->
+        <div class="product-card" data-desc="Gorra oficial ajustable estilo trucker. Visera semirrecta con bordado en alto relieve de alta calidad de la marca Love. Un accesorio moderno y versátil.">
+          <div class="product-image">
+            <img src="./Assets/MERCHANDISING/02.jpg" alt="Gorra Love Trucker">
+          </div>
+          <div class="product-info">
+            <h4 class="product-title">Gorra Love Trucker</h4>
+            <div class="product-price">$25.000 COP</div>
+            <div class="product-actions">
+              <button class="btn btn-primary btn-view-details" style="width: 100%;">Detalles <i class="fas fa-eye"></i></button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Product 3 -->
+        <div class="product-card" data-desc="Camiseta oficial color blanco, fabricada con 100% algodón peinado premium. Logo minimalista Love en el pecho. Muy fresca y cómoda para el clima de Cartagena.">
+          <div class="product-image">
+            <img src="./Assets/MERCHANDISING/03.jpg" alt="Camiseta Love Blanca">
+          </div>
+          <div class="product-info">
+            <h4 class="product-title">Camiseta Love Blanca</h4>
+            <div class="product-price">$45.000 COP</div>
+            <div class="product-actions">
+              <button class="btn btn-primary btn-view-details" style="width: 100%;">Detalles <i class="fas fa-eye"></i></button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Product 4 -->
+        <div class="product-card" data-desc="Camiseta oficial color negro, confeccionada con algodón premium de alto gramaje. Logo minimalista Love de excelente calidad. Ideal para lucir en cualquier ocasión de la semana.">
+          <div class="product-image">
+            <img src="./Assets/MERCHANDISING/04.jpg" alt="Camiseta Love Negra">
+          </div>
+          <div class="product-info">
+            <h4 class="product-title">Camiseta Love Negra</h4>
+            <div class="product-price">$45.000 COP</div>
+            <div class="product-actions">
+              <button class="btn btn-primary btn-view-details" style="width: 100%;">Detalles <i class="fas fa-eye"></i></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================================
+       SECTION: DONACIONES LOVE
+       ========================================================================== -->
+  <section id="donaciones" class="section donations-section">
+    <div class="container">
+      <div class="section-title reveal">Donaciones Love</div>
+      <div class="heart-divider reveal reveal-delay-1">
+        <img src="./Assets/Perfil-whatsapp.jpg" alt="Corazón Comunidad Love">
+      </div>
+      <div class="section-subtitle reveal reveal-delay-2">Tus aportes nos ayudan a mantener los servicios activos y expandir las Buenas Nuevas en la ciudad.</div>
+      
+      <div class="donation-container-box reveal">
+        <div class="donation-info">
+          <h3>Sostén la <span>Obra</span></h3>
+          <p>Creemos en un Dios generoso y en la bendición de dar con alegría. A través de tus diezmos y ofrendas, financias el evangelismo, el mantenimiento del templo, los ministerios y los proyectos de ayuda social en la costa colombiana.</p>
+          <p style="font-size: 0.9rem; font-style: italic;"><i class="fas fa-quote-left" style="color:var(--primary); margin-right: 8px;"></i>Cada uno dé como propuso en su corazón: no con tristeza, ni por necesidad, porque Dios ama al dador alegre." - 2 Corintios 9:7</p>
+        </div>
+        
+        <!-- Bank Details Card -->
+        <div class="bank-details-card">
+          <div class="bank-logo-sim">
+            <i class="fas fa-building-columns"></i> Bancolombia
+          </div>
+          
+          <div class="bank-fields-list">
+            <div class="bank-field">
+              <span class="bank-field-label">Titular</span>
+              <span class="bank-field-value">IGLESIA LOVE COMUNIDAD CRISTIANA</span>
+            </div>
+            
+            <div class="bank-field">
+              <span class="bank-field-label">NIT</span>
+              <span class="bank-field-value">
+                901866021
+                <button class="copy-btn" data-copy="901866021" aria-label="Copiar NIT">
+                  <i class="far fa-copy"></i>
+                </button>
+              </span>
+            </div>
+            
+            <div class="bank-field">
+              <span class="bank-field-label">Tipo de Cuenta</span>
+              <span class="bank-field-value">Cuenta de Ahorros</span>
+            </div>
+            
+            <div class="bank-field">
+              <span class="bank-field-label">Número de Cuenta</span>
+              <span class="bank-field-value">
+                175-000075-09
+                <button class="copy-btn" data-copy="175-000075-09" aria-label="Copiar número de cuenta">
+                  <i class="far fa-copy"></i>
+                </button>
+              </span>
+            </div>
+            
+            <div class="bank-field">
+              <span class="bank-field-label">Estado</span>
+              <span class="bank-field-value" style="color:#2ecc71;"><i class="fas fa-circle-check"></i> Activa</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================================
+       SECTION: ESPACIO DE REFLEXIÓN Y PETICIONES (LOCAL STORAGE)
+       ========================================================================== -->
+  <section id="reflexion" class="section reflection-section">
+    <div class="container">
+      <div class="section-title reveal">Espacio de Reflexión y Oración</div>
+      <div class="heart-divider reveal reveal-delay-1">
+        <img src="./Assets/Perfil-IG.jpg" alt="Corazón Comunidad Love">
+      </div>
+      <div class="section-subtitle reveal reveal-delay-2">¿Tienes alguna inquietud o una petición de oración? Escríbenos, nuestra pastoral y líderes orarán contigo.</div>
+      
+      <div class="reflection-grid">
+        <!-- Input Form -->
+        <div class="reflection-form-card reveal">
+          <h3>Escríbenos</h3>
+          <p>Tu petición será tratada con confidencialidad. Queremos apoyarte y darte ánimo.</p>
+          
+          <form id="prayer-form">
+            <div class="form-group">
+              <label for="form-name" class="form-label">Tu Nombre (puedes usar pseudónimo)</label>
+              <input type="text" id="form-name" class="form-control" placeholder="Ej. Juan Pérez" required>
+            </div>
+            
+            <div class="form-group">
+              <label for="form-type" class="form-label">Tipo de mensaje</label>
+              <select id="form-type" class="form-control">
+                <option value="petición">Petición de Oración</option>
+                <option value="inquietud">Inquietud / Pregunta</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label for="form-text" class="form-label">Escribe tu petición o mensaje</label>
+              <textarea id="form-text" class="form-control" rows="4" placeholder="Escribe aquí tu petición detallada de oración..." required></textarea>
+            </div>
+            
+            <button type="submit" class="btn btn-primary" style="width:100%;">Enviar Mensaje <i class="fas fa-paper-plane"></i></button>
+          </form>
+        </div>
+        
+        <!-- Live Request Board -->
+        <div class="prayers-board-card reveal reveal-delay-2">
+          <div class="prayers-board-header">
+            <h3>Muro de Clamor</h3>
+            <span id="prayers-count-badge" class="prayers-count-badge">0 Activas</span>
+          </div>
+          
+          <div id="prayers-list" class="prayers-list">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================================
+       FOOTER
+       ========================================================================== -->
+  <footer>
+    <div class="container footer-grid">
+      <div class="footer-brand">
+        <img src="./Assets/logo-blanco.png" alt="Logo Blanco Comunidad Love" class="footer-logo">
+        <h4>Comunidad <span>Love</span></h4>
+        <p>Una gran familia ministerial comprometida en levantar el nombre de Jesús y restaurar los hogares en Cartagena, Colombia.</p>
+        
+        <div class="social-links">
+          <a href="https://www.facebook.com/share/1996TDazq1/?mibextid=wwXIfr" target="_blank" class="social-link" aria-label="Facebook"><i class="fab fa-facebook-f"></i></a>
+          <a href="https://www.instagram.com/comunidadcristianalove?igsh=OXdsaDhtenoweDc=" target="_blank" class="social-link" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
+          <a href="https://youtube.com/@comunidadcristianalove?si=SVu02G2wBtLYnAYw" target="_blank" class="social-link" aria-label="YouTube"><i class="fab fa-youtube"></i></a>
+        </div>
+      </div>
+      
+      <div class="footer-links">
+        <h5>Menú</h5>
+        <div class="footer-links-list">
+          <a href="#">Inicio</a>
+          <a href="#nosotros">Nosotros</a>
+          <a href="#pastores">Pastores</a>
+          <a href="#calendario">Calendario</a>
+          <a href="#eventos">Galería</a>
+          <a href="#market">Market</a>
+          <a href="#reflexion">Oración</a>
+        </div>
+      </div>
+      
+      <div class="footer-contact">
+        <h5>Contacto</h5>
+        <div class="footer-contact-list">
+          <div class="footer-contact-item">
+            <i class="fas fa-map-location-dot"></i>
+            <span>Avenida Pedro de Heredia, Sector Pie de la Popa, Cartagena, Colombia</span>
+          </div>
+          <div class="footer-contact-item">
+            <i class="fas fa-envelope"></i>
+            <span>contacto@comunidadlove.co</span>
+          </div>
+          <div class="footer-contact-item">
+            <i class="fas fa-phone"></i>
+            <span>+57 300 123 4567</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="container footer-bottom">
+      <div>&copy; 2026 Comunidad Love Cartagena. Todos los derechos reservados.</div>
+      <div>Diseño Elegante y Moderno para el Reino de Dios</div>
+    </div>
+  </footer>
+
+  <!-- ==========================================================================
+       MODALS (LIGHTBOX & MARKET MODAL)
+       ========================================================================== -->
+  <!-- Photo Lightbox -->
+  <div id="lightbox" class="lightbox">
+    <div class="lightbox-content">
+      <button class="lightbox-close">&times;</button>
+      <img src="" alt="Ampliada">
+      <div class="lightbox-caption"></div>
+    </div>
+  </div>
+
+  <!-- Love Market Product Details Modal -->
+  <div id="market-modal" class="market-modal">
+    <div class="market-modal-content">
+      <button class="modal-market-close">&times;</button>
+      <div class="modal-product-img-wrapper">
+        <img src="" alt="" class="modal-product-img">
+      </div>
+      <div class="modal-product-info">
+        <h4 class="modal-product-title">Producto</h4>
+        <div class="modal-product-price">$0 COP</div>
+        <p class="modal-product-desc">Cargando...</p>
+        <a href="" target="_blank" class="btn btn-primary whatsapp-checkout-btn" style="width: 100%;">
+          Comprar por WhatsApp <i class="fab fa-whatsapp"></i>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       SCRIPTS
+       ========================================================================== -->
+  <!-- Lottie Animation Web Player CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
+  
+  <!-- Leaflet Map JS CDN -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  
+  <!-- Application JS Logic -->
+  <script src="./app.js"></script>
+
+  <!-- Script for Map Initialization -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      try {
+        const map = L.map('leaflet-map', {
+          scrollWheelZoom: false
+        }).setView([10.4190, -75.5298], 15);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        const marker = L.marker([10.4190, -75.5298]).addTo(map);
+        marker.bindPopup("<b>Comunidad Love</b><br>Cartagena, Colombia.").openPopup();
+      } catch (e) {
+        console.warn("Leaflet Map failed to load, verify network.", e);
+        const mapPlaceholder = document.getElementById('leaflet-map');
+        if (mapPlaceholder) {
+          mapPlaceholder.innerHTML = `
+            <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; height:100%; background:#f5f5f5; color:#555; padding:20px;">
+              <i class="fas fa-map-marked-alt" style="font-size:3rem; color:var(--primary); margin-bottom:12px;"></i>
+              <p style="font-weight:600;">Comunidad Love Cartagena</p>
+              <p style="font-size:0.85rem; text-align:center;">Avenida Pedro de Heredia, Sector Pie de la Popa, Cartagena</p>
+            </div>
+          `;
+        }
+      }
+    });
+  </script>
+
+</body>
+</html>
