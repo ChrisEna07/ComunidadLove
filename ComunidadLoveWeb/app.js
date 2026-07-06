@@ -377,7 +377,15 @@ const DEFAULT_PRAYERS = [
     text: "Pido oración por el nuevo proyecto de evangelismo Love Buenas Nuevas, para que Dios abra puertas en los hogares de Cartagena.",
     date: "Hace 1 hora",
     prayersCount: 18,
-    prayedBy: []
+    prayedBy: [],
+    replies: [
+      {
+        id: 101,
+        name: "Pastor James",
+        text: "Amén Milena, nos unimos como familia pastoral a este clamor por la salvación de Cartagena.",
+        date: "Hace 45 minutos"
+      }
+    ]
   },
   {
     id: 2,
@@ -386,7 +394,15 @@ const DEFAULT_PRAYERS = [
     text: "Me gustaría ser voluntario en el grupo de alabanza Love Adora. ¿A quién me puedo dirigir para los ensayos?",
     date: "Hace 4 horas",
     prayersCount: 5,
-    prayedBy: []
+    prayedBy: [],
+    replies: [
+      {
+        id: 102,
+        name: "Líder Adora",
+        text: "¡Hola Aron! Claro que sí, puedes acercarte este sábado a las 4:00 PM al templo para los ensayos. ¡Bienvenido!",
+        date: "Hace 3 horas"
+      }
+    ]
   },
   {
     id: 3,
@@ -395,7 +411,8 @@ const DEFAULT_PRAYERS = [
     text: "Clamamos por el servicio de Love Woman de este fin de semana. Que cada mujer que asista experimente restauración y libertad.",
     date: "Ayer",
     prayersCount: 32,
-    prayedBy: []
+    prayedBy: [],
+    replies: []
   }
 ];
 
@@ -436,6 +453,29 @@ function initPrayerRequestSystem() {
       item.classList.add('prayer-item');
       
       const typeLabel = prayer.type === 'petición' ? 'Petición de Oración' : 'Inquietud / Pregunta';
+      
+      // Ensure replies array exists
+      const replies = prayer.replies || [];
+      
+      let repliesHTML = '';
+      if (replies.length > 0) {
+        replies.forEach(reply => {
+          repliesHTML += `
+            <div class="reply-item">
+              <div class="reply-meta">
+                <span class="reply-author">${escapeHTML(reply.name)}</span>
+                <span class="reply-date">${reply.date}</span>
+              </div>
+              <p class="reply-content">${escapeHTML(reply.text)}</p>
+              <button class="reply-to-reply-btn" data-id="${prayer.id}" data-author="${escapeHTML(reply.name)}">
+                <i class="fas fa-reply"></i> Responder
+              </button>
+            </div>
+          `;
+        });
+      } else {
+        repliesHTML = '<p class="no-replies-text">No hay respuestas aún. ¡Sé el primero en responder!</p>';
+      }
 
       item.innerHTML = `
         <div class="prayer-meta">
@@ -448,6 +488,24 @@ function initPrayerRequestSystem() {
           <button class="pray-action-btn" data-id="${prayer.id}">
             <i class="fas fa-hands-praying"></i> <span>Unirme en oración (${prayer.prayersCount})</span>
           </button>
+          <button class="reply-toggle-btn" data-id="${prayer.id}">
+            <i class="far fa-comments"></i> <span>Respuestas (${replies.length})</span>
+          </button>
+        </div>
+        
+        <div class="replies-section" id="replies-section-${prayer.id}" style="display: none;">
+          <div class="replies-list" id="replies-list-${prayer.id}">
+            ${repliesHTML}
+          </div>
+          <form class="reply-form" data-id="${prayer.id}">
+            <div class="form-row">
+              <input type="text" class="reply-name-input" placeholder="Tu nombre o alias" required>
+            </div>
+            <div class="form-row" style="margin-top: 6px;">
+              <textarea class="reply-text-input" placeholder="Escribe tu respuesta..." rows="2" required></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm" style="margin-top: 8px; align-self: flex-end;">Responder <i class="fas fa-paper-plane"></i></button>
+          </form>
         </div>
       `;
 
@@ -458,13 +516,6 @@ function initPrayerRequestSystem() {
       }
 
       prayersList.appendChild(item);
-    });
-
-    document.querySelectorAll('.pray-action-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = parseInt(btn.getAttribute('data-id'));
-        togglePrayerCount(id);
-      });
     });
   }
 
@@ -488,6 +539,87 @@ function initPrayerRequestSystem() {
     renderPrayers();
   }
 
+  // Click & Action Delegation
+  prayersList.addEventListener('click', (e) => {
+    // Toggle replies panel
+    const toggleBtn = e.target.closest('.reply-toggle-btn');
+    if (toggleBtn) {
+      const id = toggleBtn.getAttribute('data-id');
+      const panel = document.getElementById(`replies-section-${id}`);
+      if (panel) {
+        const isHidden = panel.style.display === 'none';
+        panel.style.display = isHidden ? 'block' : 'none';
+      }
+    }
+    
+    // Toggle prayer status
+    const prayBtn = e.target.closest('.pray-action-btn');
+    if (prayBtn) {
+      const id = parseInt(prayBtn.getAttribute('data-id'));
+      togglePrayerCount(id);
+    }
+    
+    // Reply to reply (tagging author)
+    const replyToBtn = e.target.closest('.reply-to-reply-btn');
+    if (replyToBtn) {
+      const id = replyToBtn.getAttribute('data-id');
+      const author = replyToBtn.getAttribute('data-author');
+      const textarea = document.querySelector(`#replies-section-${id} .reply-text-input`);
+      if (textarea) {
+        textarea.value = `@${author} ` + textarea.value;
+        textarea.focus();
+      }
+    }
+  });
+
+  // Reply Form Submit Delegation
+  prayersList.addEventListener('submit', (e) => {
+    const form = e.target.closest('.reply-form');
+    if (form) {
+      e.preventDefault();
+      const id = parseInt(form.getAttribute('data-id'));
+      const nameInput = form.querySelector('.reply-name-input');
+      const textInput = form.querySelector('.reply-text-input');
+      
+      const nameVal = nameInput.value.trim();
+      const textVal = textInput.value.trim();
+      
+      if (!nameVal || !textVal) {
+        alert("Por favor completa los campos.");
+        return;
+      }
+      
+      // Profanity Filter Check
+      if (contienePalabrasObscenas(nameVal) || contienePalabrasObscenas(textVal)) {
+        alert("¡Epa! Tu mensaje o nombre contiene vocabulario inapropiado. En Comunidad Love promovemos palabras de edificación y respeto.");
+        return;
+      }
+      
+      // Add reply
+      prayers = prayers.map(p => {
+        if (p.id === id) {
+          p.replies = p.replies || [];
+          p.replies.push({
+            id: Date.now(),
+            name: nameVal,
+            text: textVal,
+            date: "Hace un momento"
+          });
+        }
+        return p;
+      });
+      
+      localStorage.setItem('cl_prayers', JSON.stringify(prayers));
+      renderPrayers();
+      
+      // Keep replies panel open for this item
+      const panel = document.getElementById(`replies-section-${id}`);
+      if (panel) {
+        panel.style.display = 'block';
+      }
+    }
+  });
+
   if (form) {
     form.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -496,19 +628,29 @@ function initPrayerRequestSystem() {
       const typeSelect = document.getElementById('form-type');
       const textInput = document.getElementById('form-text');
 
-      if (!nameInput.value.trim() || !textInput.value.trim()) {
+      const nameVal = nameInput.value.trim();
+      const textVal = textInput.value.trim();
+
+      if (!nameVal || !textVal) {
         alert("Por favor completa los campos requeridos.");
+        return;
+      }
+
+      // Profanity Filter Check
+      if (contienePalabrasObscenas(nameVal) || contienePalabrasObscenas(textVal)) {
+        alert("¡Epa! Tu mensaje o nombre contiene vocabulario inapropiado. En Comunidad Love promovemos palabras de edificación y respeto.");
         return;
       }
 
       const newPrayer = {
         id: Date.now(),
-        name: nameInput.value.trim(),
+        name: nameVal,
         type: typeSelect.value,
-        text: textInput.value.trim(),
+        text: textVal,
         date: "Hace un momento",
         prayersCount: 0,
-        prayedBy: []
+        prayedBy: [],
+        replies: []
       };
 
       prayers.push(newPrayer);
@@ -732,4 +874,49 @@ function initLocationTabs() {
       }
     });
   });
+}
+
+/* ==========================================================================
+   PROFANITY FILTER (SPANISH, COSTEÑO & ENGLISH)
+   ========================================================================== */
+function contienePalabrasObscenas(texto) {
+  if (!texto) return false;
+  
+  const palabrasObscenas = [
+    // Costeño / Colombiano (Cartagena, Barranquilla, Santa Marta, etc.)
+    'mamon', 'mamón', 'mamonazo', 'hijo de puta', 'hijoeputa', 'hijueputa', 'hpta', 'gonorrea', 
+    'malparido', 'malparida', 'carechimba', 'chimba', 'monda', 'mondá', 'marica', 'maricon', 
+    'maricón', 'pirobo', 'culero', 'careverga', 'verga', 'mierda', 'mierdero', 'puta', 'puto', 
+    'cacorro', 'tripleputa', 'cabron', 'cabrón', 'hijuemadre', 'jijuemadre', 'caremonda', 'caremondá',
+    'culipronta', 'culipronto', 'sipote', 'petardo', 'corroncho', 'cascorro', 'careculo', 'careverga',
+    // Español general y otros departamentos
+    'pendejo', 'pendeja', 'pendejada', 'joder', 'pingo', 'boludo', 'pelotudo', 'gil', 'concha', 
+    'conchudo', 'culiao', 'hijo de perra', 'maraco', 'chucha', 'mamaguevo', 'mamagüevo', 'guevon', 
+    'güevón', 'guevón', 'weon', 'culito', 'teta', 'panocha', 'bollo', 'guaricha',
+    // Inglés
+    'fuck', 'fucking', 'shit', 'asshole', 'bitch', 'cunt', 'dick', 'bastard', 'motherfucker', 
+    'whore', 'piss', 'crap', 'wanker', 'bollocks'
+  ];
+  
+  // Normalizar texto (quitar tildes, diéresis, espacios duplicados y convertir a minúsculas)
+  const textoNormalizado = texto
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, ""); // Quita tildes
+    
+  // Buscar palabras en el texto normalizado
+  for (let i = 0; i < palabrasObscenas.length; i++) {
+    const palabra = palabrasObscenas[i].normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    
+    // Si la palabra contiene espacios (como "hijo de puta"), la buscamos directamente
+    if (palabra.includes(' ')) {
+      if (textoNormalizado.includes(palabra)) return true;
+    } else {
+      // Si no, buscamos la palabra aislada usando límites \b
+      const regex = new RegExp('\\b' + palabra + '\\b', 'i');
+      if (regex.test(textoNormalizado)) return true;
+    }
+  }
+  
+  return false;
 }
