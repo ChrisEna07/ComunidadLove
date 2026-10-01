@@ -130,6 +130,9 @@ export function renderOracion(container) {
   function paint(list, isReady = true) {
     const prayers = list || [];
     const open = prayers.filter((p) => p.status === 'abierta').length;
+    const answered = prayers.filter(
+      (p) => p.status === 'atendida' || (Array.isArray(p.replies) && p.replies.length > 0)
+    ).length;
     const reactions = prayers.reduce((sum, p) => {
       const cardTotal = typeof p.totalReactions === 'number'
         ? p.totalReactions
