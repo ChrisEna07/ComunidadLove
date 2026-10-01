@@ -8,7 +8,7 @@ import { can, roleLabel } from '../../lib/auth.js';
 import { pageHeader, statCard, card, emptyState, tag, button } from '../ui.js';
 import { escapeHTML, formatPhoneCO, whatsappLink, birthdayWhatsappMessage, downloadCSV } from '../../lib/dom.js';
 import { birthdaysThis } from '../../services/members.js';
-import { formatDate as _formatDate, smartDate, birthdayLabel, daysUntil } from '../../lib/dates.js';
+import { formatDate as _formatDate, smartDate, birthdayLabel, daysUntil, parseDate } from '../../lib/dates.js';
 import { seedInitialData } from '../../services/seed.js';
 import { showToast, confirmDialog } from '../../lib/dom.js';
 
@@ -199,18 +199,21 @@ function renderNextEvents(events) {
     <ul class="clg-event-list">
       ${list
         .map(
-          (event) => `
+          (event) => {
+            const dStart = parseDate(event.dateStart);
+            return `
         <li class="clg-event-item">
           <div class="clg-event-date">
-            <span>${escapeHTML(event.dateStart.getDate())}</span>
-            <small>${escapeHTML(event.dateStart.toLocaleDateString('es-CO', { month: 'short' }))}</small>
+            <span>${escapeHTML(dStart.getDate())}</span>
+            <small>${escapeHTML(dStart.toLocaleDateString('es-CO', { month: 'short' }))}</small>
           </div>
           <div class="clg-event-info">
             <strong>${escapeHTML(event.title)}</strong>
-            <span>${escapeHTML(smartDate(event.dateStart))}${event.location ? ` · ${escapeHTML(event.location)}` : ''}</span>
+            <span>${escapeHTML(smartDate(dStart))}${event.location ? ` · ${escapeHTML(event.location)}` : ''}</span>
           </div>
-          ${tag(daysUntil(event.dateStart) === 0 ? 'Hoy' : `En ${daysUntil(event.dateStart)} d`, 'news')}
-        </li>`
+          ${tag(daysUntil(dStart) === 0 ? 'Hoy' : `En ${daysUntil(dStart)} d`, 'news')}
+        </li>`;
+          }
         )
         .join('')}
     </ul>

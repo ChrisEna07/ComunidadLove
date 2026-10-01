@@ -591,66 +591,10 @@
       </div>
       <div class="section-subtitle reveal reveal-delay-2">Adquiere nuestros productos oficiales de merchandising y apoya los proyectos sociales de la Comunidad Love.</div>
       
-      <div class="market-grid reveal reveal-delay-2" id="market-grid">
-        <!-- Product 1 -->
-        <div class="product-card" data-desc="Hoodie premium con capucha y bolsillo delantero. Material ultra suave y duradero, estampado en alta definición con el logo de la Comunidad Love. Disponible en todas las tallas.">
-          <div class="product-image">
-            <span class="product-badge">Top Ventas</span>
-            <img src="./Assets/MERCHANDISING/01.jpg" alt="Hoodie Love Premium">
-          </div>
-          <div class="product-info">
-            <h4 class="product-title">Hoodie Love Premium</h4>
-            <div class="product-price">$85.000 COP</div>
-            <div class="product-actions" style="display: flex; gap: 8px;">
-              <button class="btn btn-outline btn-view-details" style="flex: 1;" type="button">Detalles <i class="fas fa-eye"></i></button>
-              <button class="btn btn-primary btn-order-product" style="flex: 1;" type="button" data-product-id="seed-hoodie" data-product-name="Hoodie Love Premium" data-product-price="85000">¡Lo quiero! <i class="fas fa-bag-shopping"></i></button>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Product 2 -->
-        <div class="product-card" data-desc="Gorra oficial ajustable estilo trucker. Visera semirrecta con bordado en alto relieve de alta calidad de la marca Love. Un accesorio moderno y versátil.">
-          <div class="product-image">
-            <img src="./Assets/MERCHANDISING/02.jpg" alt="Gorra Love Trucker">
-          </div>
-          <div class="product-info">
-            <h4 class="product-title">Gorra Love Trucker</h4>
-            <div class="product-price">$25.000 COP</div>
-            <div class="product-actions" style="display: flex; gap: 8px;">
-              <button class="btn btn-outline btn-view-details" style="flex: 1;" type="button">Detalles <i class="fas fa-eye"></i></button>
-              <button class="btn btn-primary btn-order-product" style="flex: 1;" type="button" data-product-id="seed-gorra" data-product-name="Gorra Love Trucker" data-product-price="25000">¡Lo quiero! <i class="fas fa-bag-shopping"></i></button>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Product 3 -->
-        <div class="product-card" data-desc="Camiseta oficial color blanco, fabricada con 100% algodón peinado premium. Logo minimalista Love en el pecho. Muy fresca y cómoda para el clima de Cartagena.">
-          <div class="product-image">
-            <img src="./Assets/MERCHANDISING/03.jpg" alt="Camiseta Love Blanca">
-          </div>
-          <div class="product-info">
-            <h4 class="product-title">Camiseta Love Blanca</h4>
-            <div class="product-price">$45.000 COP</div>
-            <div class="product-actions" style="display: flex; gap: 8px;">
-              <button class="btn btn-outline btn-view-details" style="flex: 1;" type="button">Detalles <i class="fas fa-eye"></i></button>
-              <button class="btn btn-primary btn-order-product" style="flex: 1;" type="button" data-product-id="seed-cam-blanca" data-product-name="Camiseta Love Blanca" data-product-price="45000">¡Lo quiero! <i class="fas fa-bag-shopping"></i></button>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Product 4 -->
-        <div class="product-card" data-desc="Camiseta oficial color negro, confeccionada con algodón premium de alto gramaje. Logo minimalista Love de excelente calidad. Ideal para lucir en cualquier ocasión de la semana.">
-          <div class="product-image">
-            <img src="./Assets/MERCHANDISING/04.jpg" alt="Camiseta Love Negra">
-          </div>
-          <div class="product-info">
-            <h4 class="product-title">Camiseta Love Negra</h4>
-            <div class="product-price">$45.000 COP</div>
-            <div class="product-actions" style="display: flex; gap: 8px;">
-              <button class="btn btn-outline btn-view-details" style="flex: 1;" type="button">Detalles <i class="fas fa-eye"></i></button>
-              <button class="btn btn-primary btn-order-product" style="flex: 1;" type="button" data-product-id="seed-cam-negra" data-product-name="Camiseta Love Negra" data-product-price="45000">¡Lo quiero! <i class="fas fa-bag-shopping"></i></button>
-            </div>
-          </div>
+      <div class="market-grid reveal reveal-delay-2" id="market-grid" data-cl-skeleton="market">
+        <div class="market-loading" style="grid-column: 1 / -1; text-align: center; padding: 3rem 1rem; color: #94a3b8;">
+          <i class="fas fa-spinner fa-spin" style="font-size: 2rem; margin-bottom: 0.75rem; color: var(--primary);"></i>
+          <p style="margin: 0; font-size: 0.95rem;">Cargando catálogo oficial...</p>
         </div>
       </div>
     </div>
@@ -766,6 +710,15 @@
           <div class="prayers-board-header">
             <h3>Muro de Clamor</h3>
             <span id="prayers-count-badge" class="prayers-count-badge">0 Activas</span>
+          </div>
+          
+          <div class="prayers-board-tabs" id="public-prayers-tabs" role="tablist">
+            <button type="button" class="prayers-tab-btn active" data-tab="peticiones" role="tab" aria-selected="true">
+              <i class="fas fa-hands-praying"></i> Peticiones (<span id="count-peticiones">0</span>)
+            </button>
+            <button type="button" class="prayers-tab-btn" data-tab="inquietudes" role="tab" aria-selected="false">
+              <i class="fas fa-circle-question"></i> Inquietudes (<span id="count-inquietudes">0</span>)
+            </button>
           </div>
           
           <div id="prayers-list" class="prayers-list">

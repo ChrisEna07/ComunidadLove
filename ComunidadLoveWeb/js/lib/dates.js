@@ -37,6 +37,23 @@ export function toDate(value) {
   }
 }
 
+/** Retorna SIEMPRE una instancia Date válida (nunca null, nunca NaN), con fallback a new Date(). */
+export function parseDate(value) {
+  if (!value) return new Date();
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? new Date() : value;
+  if (typeof value === 'object' && typeof value.toDate === 'function') {
+    try {
+      const d = value.toDate();
+      if (d instanceof Date && !Number.isNaN(d.getTime())) return d;
+    } catch {}
+  }
+  if (typeof value === 'object' && typeof value.seconds === 'number') {
+    return new Date(value.seconds * 1000);
+  }
+  const parsed = toDate(value);
+  return (parsed && !Number.isNaN(parsed.getTime())) ? parsed : new Date();
+}
+
 export function pad(value) {
   return String(value).padStart(2, '0');
 }

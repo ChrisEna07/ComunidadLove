@@ -18,7 +18,7 @@ import {
   showToast,
   confirmDialog
 } from '../../lib/dom.js';
-import { formatDateTime, daysUntil } from '../../lib/dates.js';
+import { formatDateTime, daysUntil, parseDate } from '../../lib/dates.js';
 import { bindImageInputs, imageInput, prepareImageValue } from '../image-input.js';
 import { subscribe, getState, removeLocalEntity } from '../store.js';
 import { pageHeader, card, emptyState, tag, iconButton, field, drawer, markInvalid, clearInvalid, setLoading, readForm } from '../ui.js';
@@ -114,7 +114,7 @@ function renderList(events, editable) {
               <p>${escapeHTML(event.description || 'Sin descripción.')}</p>
               <dl class="clg-event-card-meta">
                 <div><dt><i class="far fa-calendar"></i> Inicio</dt><dd>${escapeHTML(formatDateTime(event.dateStart))}</dd></div>
-                ${event.dateEnd && event.dateEnd.getTime() !== event.dateStart?.getTime() ? `<div><dt><i class="far fa-calendar-check"></i> Fin</dt><dd>${escapeHTML(formatDateTime(event.dateEnd))}</dd></div>` : ''}
+                ${event.dateEnd && parseDate(event.dateEnd).getTime() !== parseDate(event.dateStart).getTime() ? `<div><dt><i class="far fa-calendar-check"></i> Fin</dt><dd>${escapeHTML(formatDateTime(event.dateEnd))}</dd></div>` : ''}
                 ${event.location ? `<div><dt><i class="fas fa-location-dot"></i> Lugar</dt><dd>${escapeHTML(event.location)}</dd></div>` : ''}
                 <div><dt><i class="fas fa-user-pen"></i> Editor</dt><dd>${escapeHTML(event.updatedByName || '—')}</dd></div>
               </dl>
@@ -332,7 +332,7 @@ const author = getState().profile?.displayName || getState().session?.user?.emai
 
 function toLocalInput(date) {
   if (!date) return '';
-  const d = date instanceof Date ? date : new Date(date);
+  const d = parseDate(date);
   if (Number.isNaN(d.getTime())) return '';
   const pad = (n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;

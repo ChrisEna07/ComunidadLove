@@ -24,7 +24,7 @@ import {
   REACTIONS
 } from './services/prayers.js';
 import { escapeHTML, qs, qsa, showToast, skeletonList } from './lib/dom.js';
-import { smartDate, formatTime, formatDate, daysUntil, MONTH_NAMES } from './lib/dates.js';
+import { smartDate, formatTime, formatDate, daysUntil, MONTH_NAMES, parseDate } from './lib/dates.js';
 import { contienePalabrasObscenas } from './lib/text.js';
 
 let settingsUnsub = null;
@@ -34,6 +34,8 @@ let productsUnsub = null;
 let prayersUnsub = null;
 const reactionUnsubs = new Map();
 const warned = new Set();
+let lastPrayersList = [];
+let currentPrayerTab = 'peticiones';
 
 function whenReady(callback) {
   if (document.readyState === 'loading') {
@@ -220,7 +222,8 @@ function renderUpcomingEvents(events) {
   const list = (events || [])
     .filter((event) => {
       if (!event.dateStart) return false;
-      const diff = event.dateStart.getTime() - now;
+      const start = parseDate(event.dateStart);
+      const diff = start.getTime() - now;
       return diff > -86400000 && diff < 1000 * 60 * 60 * 24 * 120;
     })
     .slice(0, 4);
@@ -237,7 +240,7 @@ function renderUpcomingEvents(events) {
 
   host.innerHTML = list
     .map((event) => {
-      const start = event.dateStart;
+      const start = parseDate(event.dateStart);
       const month = MONTH_NAMES[start.getMonth()].toUpperCase();
       const countdown = daysUntil(start);
       const countdownLabel = countdown === 0 ? '¡Hoy!' : countdown === 1 ? 'Mañana' : `En ${countdown} días`;
@@ -300,8 +303,16 @@ function renderMarket(products) {
   const host = qs('#market-grid');
   if (!host) return;
 
-  // Sin productos en Firestore se conserva el contenido estático original.
-  if (!products || !products.length) return;
+  if (!products || !products.length) {
+    host.innerHTML = `
+      <div class="market-empty">
+        <i class="fas fa-store-slash" style="font-size: 2.8rem; margin-bottom: 1rem; color: var(--primary); opacity: 0.8; display: block;"></i>
+        <h4 style="font-size: 1.2rem; font-weight: 600; color: var(--secondary); margin-bottom: 0.5rem;">Catálogo en renovación</h4>
+        <p style="max-width: 480px; margin: 0 auto; font-size: 0.95rem; line-height: 1.6;">Pronto tendremos nuevos productos oficiales disponibles para apoyar la obra. ¡Te esperamos en nuestros servicios presenciales!</p>
+      </div>
+    `;
+    return;
+  }
 
   host.innerHTML = products
     .map((product) => {
@@ -551,20 +562,32 @@ function initPublicMarketOrders() {
    respuestas aquí.
    -------------------------------------------------------------------------- */
 function renderPublicPrayers(list) {
+  if (Array.isArray(list)) lastPrayersList = list;
   const host = qs('#prayers-list');
   if (!host) return;
 
-  const prayers = list || [];
+  const prayers = lastPrayersList || [];
+  const peticiones = prayers.filter((p) => p.type !== 'inquietud');
+  const inquietudes = prayers.filter((p) => p.type === 'inquietud');
 
-  // Contador de peticiones activas.
+  // Actualizar contadores en pestañas
+  const countPeticiones = qs('#count-peticiones');
+  if (countPeticiones) countPeticiones.textContent = String(peticiones.length);
+  const countInquietudes = qs('#count-inquietudes');
+  if (countInquietudes) countInquietudes.textContent = String(inquietudes.length);
+
+  // Contador de peticiones activas global
   const badge = qs('#prayers-count-badge');
   if (badge) {
     badge.textContent = prayers.length === 1 ? '1 Activa' : `${prayers.length} Activas`;
   }
 
+  // Elementos correspondientes a la pestaña activa
+  const activeItems = currentPrayerTab === 'inquietudes' ? inquietudes : peticiones;
+
   // Cierra o abre los listeners de reacciones de la vista anterior.
   reactionUnsubs.forEach((unsub, id) => {
-    if (!prayers.some((p) => p.id === id)) {
+    if (!activeItems.some((p) => p.id === id)) {
       try {
         unsub();
       } catch {
@@ -574,20 +597,24 @@ function renderPublicPrayers(list) {
     }
   });
 
-  if (!prayers.length) {
+  if (!activeItems.length) {
     host.innerHTML = `
       <div class="prayer-empty">
-        <i class="fas fa-hand-holding-heart" aria-hidden="true"></i>
-        <p>Aún no hay peticiones publicadas. Puedes ser el primero en dejarla.</p>
+        <i class="${currentPrayerTab === 'inquietudes' ? 'fas fa-comments' : 'fas fa-hand-holding-heart'}" aria-hidden="true"></i>
+        <p>${
+          currentPrayerTab === 'inquietudes'
+            ? 'Aún no hay inquietudes o preguntas publicadas. ¡Deja tu consulta!'
+            : 'Aún no hay peticiones publicadas. Puedes ser el primero en dejarla.'
+        }</p>
       </div>
     `;
     return;
   }
 
-  host.innerHTML = prayers.map(renderPrayerCard).join('');
+  host.innerHTML = activeItems.map(renderPrayerCard).join('');
 
   // Las reacciones se cargan por tarjeta para no traer el muro entero dos veces.
-  prayers.forEach((prayer) => {
+  activeItems.forEach((prayer) => {
     if (reactionUnsubs.has(prayer.id)) return;
     const host2 = qs(`[data-reactions="${prayer.id}"]`, host);
     if (!host2) return;
@@ -714,20 +741,59 @@ function bindPublicInteractions() {
         return;
       }
 
+      const prayerType = typeInput?.value || 'petición';
       if (submitBtn) submitBtn.disabled = true;
       try {
         await createPrayer({
           name: nameVal,
-          type: typeInput?.value || 'petición',
+          type: prayerType,
           text: textVal
         });
         form.reset();
-        showToast('Tu petición fue enviada. El equipo pastoral la responderá con bendición.', 'success');
+        showToast(
+          prayerType === 'inquietud'
+            ? 'Tu inquietud fue enviada. El equipo pastoral te responderá pronto.'
+            : 'Tu petición fue enviada. El equipo pastoral la responderá con bendición.',
+          'success'
+        );
+        // Conmutar pestaña activa para mostrar el mensaje recién creado
+        const targetTab = prayerType === 'inquietud' ? 'inquietudes' : 'peticiones';
+        if (currentPrayerTab !== targetTab) {
+          currentPrayerTab = targetTab;
+          const tabsHost = qs('#public-prayers-tabs');
+          if (tabsHost) {
+            tabsHost.querySelectorAll('.prayers-tab-btn').forEach((b) => {
+              const isActive = b.dataset.tab === currentPrayerTab;
+              b.classList.toggle('active', isActive);
+              b.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            });
+          }
+          renderPublicPrayers();
+        }
       } catch (error) {
         showToast(error.message || 'No se pudo enviar tu petición.', 'danger');
       } finally {
         if (submitBtn) submitBtn.disabled = false;
       }
+    });
+  }
+
+  // Pestañas del Muro de Clamor / Inquietudes
+  const tabsHost = qs('#public-prayers-tabs');
+  if (tabsHost && tabsHost.dataset.bound !== '1') {
+    tabsHost.dataset.bound = '1';
+    tabsHost.addEventListener('click', (e) => {
+      const btn = e.target.closest('.prayers-tab-btn');
+      if (!btn) return;
+      const tab = btn.dataset.tab;
+      if (tab === currentPrayerTab) return;
+      currentPrayerTab = tab;
+      tabsHost.querySelectorAll('.prayers-tab-btn').forEach((b) => {
+        const isActive = b.dataset.tab === currentPrayerTab;
+        b.classList.toggle('active', isActive);
+        b.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      });
+      renderPublicPrayers();
     });
   }
 

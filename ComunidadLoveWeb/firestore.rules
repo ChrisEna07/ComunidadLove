@@ -177,6 +177,11 @@ service cloud.firestore {
       allow write: if can('content.write');
     }
 
+    match /notices/{docId} {
+      allow read: if true;
+      allow write: if can('content.write');
+    }
+
     /* ------------------------------------------------------------------
        LOVE MARKET
        Catálogo público y pedidos de compra ("Lo quiero").

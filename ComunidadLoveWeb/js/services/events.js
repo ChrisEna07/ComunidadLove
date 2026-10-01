@@ -21,7 +21,7 @@ import {
 } from 'firebase/firestore';
 import { db, requireService } from '../firebase.js';
 import { sanitizeImageValue } from '../lib/image.js';
-import { toDate } from '../lib/dates.js';
+import { toDate, parseDate } from '../lib/dates.js';
 
 export const EVENT_CATEGORIES = [
   { value: 'general', label: 'General' },
@@ -59,8 +59,8 @@ function decorate(id, data) {
 
 function sortByDate(list) {
   return list.sort((a, b) => {
-    const da = a.dateStart ? a.dateStart.getTime() : Number.MAX_SAFE_INTEGER;
-    const db2 = b.dateStart ? b.dateStart.getTime() : Number.MAX_SAFE_INTEGER;
+    const da = a.dateStart ? parseDate(a.dateStart).getTime() : Number.MAX_SAFE_INTEGER;
+    const db2 = b.dateStart ? parseDate(b.dateStart).getTime() : Number.MAX_SAFE_INTEGER;
     return da - db2;
   });
 }
@@ -105,20 +105,20 @@ export function upcomingEvents(active, limit = 3) {
   return (active || [])
     .filter((event) => {
       if (!event.dateStart) return true;
-      return event.dateStart.getTime() >= Math.min(now, todayEnd.getTime() - 86400000);
+      return parseDate(event.dateStart).getTime() >= Math.min(now, todayEnd.getTime() - 86400000);
     })
     .slice(0, limit);
 }
 
 export function eventsOnDay(events, date) {
-  const target = new Date(date);
+  const target = parseDate(date);
   const y = target.getFullYear();
   const m = target.getMonth();
   const d = target.getDate();
   return (events || []).filter((event) => {
-    const start = event.dateStart;
-    if (!start) return false;
-    const end = event.dateEnd || start;
+    if (!event.dateStart) return false;
+    const start = parseDate(event.dateStart);
+    const end = event.dateEnd ? parseDate(event.dateEnd) : start;
     const startTime = new Date(start.getFullYear(), start.getMonth(), start.getDate()).getTime();
     const endTime = new Date(end.getFullYear(), end.getMonth(), end.getDate()).getTime();
     const targetTime = new Date(y, m, d).getTime();
