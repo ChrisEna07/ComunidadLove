@@ -286,7 +286,7 @@ service cloud.firestore {
        GESTIÓN DE MIEMBROS
        ------------------------------------------------------------------ */
     match /members/{memberId} {
-      allow read: if can('members.read');
+      allow read: if can('members.read') || resource.data.get('status', 'activo') == 'activo';
       allow create, update: if can('members.write') && writesValidImage('photoUrl');
       allow delete: if can('members.delete');
 

@@ -237,16 +237,44 @@ function initCalendar() {
   let currentMonth = today.getMonth();
   let currentYear = today.getFullYear();
 
-  // Eventos administrables cargados desde Firestore (js/public-init.js).
-  // Tienen prioridad sobre el calendario recurrente local.
+  // Eventos administrables y cumpleaños cargados desde Firestore (js/public-init.js)
   let externalEvents = [];
+  let externalBirthdays = [];
+
+  const DAY_MAP = {
+    domingo: 0, domingos: 0,
+    lunes: 1,
+    martes: 2,
+    miercoles: 3, miércoles: 3,
+    jueves: 4,
+    viernes: 5,
+    sabado: 6, sábado: 6, sabados: 6, sábados: 6
+  };
+
+  function getRecurringDay(event) {
+    if (!event) return null;
+    if (typeof event.recurringDay === 'number') return event.recurringDay;
+    const txt = `${event.title || ''} ${event.description || ''} ${event.location || ''}`.toLowerCase();
+    const match = txt.match(/\b(domingos?|lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bados?)\b/i);
+    if (match) {
+      const clean = match[1].toLowerCase().replace('é', 'e').replace('á', 'a');
+      if (DAY_MAP[clean] !== undefined) return DAY_MAP[clean];
+    }
+    if (event.isRecurring || event.recurring) {
+      const s = parseSafeDate(event.dateStart);
+      if (s) return s.getDay();
+    }
+    return null;
+  }
 
   function externalEventFor(dateObj) {
     const y = dateObj.getFullYear();
     const m = dateObj.getMonth();
     const d = dateObj.getDate();
+    const dayOfWeek = dateObj.getDay();
 
-    return externalEvents.find((event) => {
+    // 1) Coincidencia exacta de fecha (inicio o rango)
+    const exact = externalEvents.find((event) => {
       const s = parseSafeDate(event.dateStart);
       if (!s) return false;
       if (s.getFullYear() === y && s.getMonth() === m && s.getDate() === d) return true;
@@ -256,7 +284,46 @@ function initCalendar() {
           && new Date(y, m, d) <= new Date(e.getFullYear(), e.getMonth(), e.getDate());
       }
       return false;
-    }) || null;
+    });
+    if (exact) return exact;
+
+    // 2) Coincidencia recurrente (ej. "martes - 6:30 pm", "todos los martes", etc.)
+    const recurring = externalEvents.find((event) => {
+      const recDay = getRecurringDay(event);
+      return recDay !== null && recDay === dayOfWeek;
+    });
+    return recurring || null;
+  }
+
+  function checkTodayCelebrations(birthdays) {
+    const now = new Date();
+    const currentMonth1 = now.getMonth() + 1;
+    const currentDay = now.getDate();
+    const celebrants = (birthdays || []).filter(b => b.birthMonth === currentMonth1 && b.birthDay === currentDay);
+
+    const bannerContainer = document.getElementById('birthday-celebration-container');
+    if (!bannerContainer) return;
+
+    if (celebrants.length > 0) {
+      const names = celebrants.map(b => b.fullName).join(' y ');
+      bannerContainer.innerHTML = `
+        <div class="cl-birthday-banner" role="alert">
+          <div class="cl-birthday-banner-inner">
+            <span class="cl-bday-sparkle">🎉</span>
+            <div class="cl-bday-text">
+              <strong>¡Hoy la Comunidad Love celebra el cumpleaños de ${names}!</strong>
+              <span>¡Muchas bendiciones! Oramos para que Dios continúe llenando tu vida de paz, salud y amor. 🎂✨</span>
+            </div>
+            <span class="cl-bday-sparkle">🎉</span>
+          </div>
+        </div>
+      `;
+      setTimeout(() => {
+        triggerConfetti();
+      }, 700);
+    } else {
+      bannerContainer.innerHTML = '';
+    }
   }
 
   function renderCalendar(month, year) {
@@ -280,13 +347,13 @@ function initCalendar() {
       dayEl.textContent = day;
 
       const dateObj = new Date(year, month, day);
-      const dayOfWeek = dateObj.getDay(); // 0 = Sunday, 3 = Wednesday, 6 = Saturday
+      const dayOfWeek = dateObj.getDay();
 
       let hasEvent = false;
       let eventTitle = "";
       let eventDesc = "";
 
-      // 1) Eventos publicados desde el panel de administración (Firestore)
+      // 1) Eventos publicados desde Firestore (exactos o recurrentes)
       const managed = externalEventFor(dateObj);
 
       if (managed) {
@@ -320,9 +387,6 @@ function initCalendar() {
           hasEvent = true;
           eventTitle = "Servicio de Parejas & Jóvenes 💑🔥";
           eventDesc = "¡Sábado de doble bendición! A las 6:00 PM tenemos nuestra reunión quincenal de Jóvenes, y a las 7:30 PM un taller especial y cena para Parejas.";
-        } else {
-          // Any intermediate Saturday
-          hasEvent = false;
         }
       } else if (dayOfWeek === 3) { // Wednesday
         hasEvent = true;
@@ -332,6 +396,17 @@ function initCalendar() {
         hasEvent = true;
         eventTitle = "Domingo Familia 👨‍👩‍👧‍👦";
         eventDesc = "Nuestro servicio principal de celebración congregacional. Ven con toda tu familia a adorar y recibir la Palabra. 9:00 AM.";
+      }
+
+      // 3) Cumpleaños de miembros registrados
+      const birthdaysToday = externalBirthdays.filter((b) => {
+        return b.birthMonth === (month + 1) && b.birthDay === day;
+      });
+
+      if (birthdaysToday.length > 0) {
+        dayEl.classList.add('has-birthday');
+        const bdayNames = birthdaysToday.map(b => b.fullName).join(', ');
+        dayEl.innerHTML = `<span>${day}</span><span class="calendar-bday-badge" title="🎂 Cumpleaños de: ${bdayNames}">🎂</span>`;
       }
 
       if (hasEvent) {
@@ -348,7 +423,17 @@ function initCalendar() {
         document.querySelectorAll('.calendar-day').forEach(d => d.classList.remove('selected'));
         dayEl.classList.add('selected');
 
-        if (hasEvent) {
+        if (birthdaysToday.length > 0) {
+          const names = birthdaysToday.map(b => b.fullName).join(' y ');
+          const bdayMsg = `🎂 ¡Cumpleaños de ${names}! Nos gozamos y damos gracias a Dios por sus vidas. ¡Muchas bendiciones!`;
+          if (hasEvent) {
+            eventTitleEl.innerHTML = `<i class="far fa-calendar-check" style="color:var(--primary);"></i> ${eventTitle} · 🎂 Cumpleaños`;
+            eventDescEl.innerHTML = `${eventDesc}<br><br><strong style="color:var(--primary); font-size: 0.95rem;">${bdayMsg}</strong>`;
+          } else {
+            eventTitleEl.innerHTML = `🎂 Cumpleaños de ${names}`;
+            eventDescEl.textContent = bdayMsg;
+          }
+        } else if (hasEvent) {
           eventTitleEl.innerHTML = `<i class="far fa-calendar-check" style="color:var(--primary);"></i> ${eventTitle}`;
           eventDescEl.textContent = eventDesc;
         } else {
@@ -382,7 +467,7 @@ function initCalendar() {
   });
 
   // Puente público para que el módulo de sincronización con Firestore
-  // empuje los eventos administrados sin reescribir este calendario.
+  // empuje los eventos y cumpleaños administrados.
   window.CL_Calendar = {
     setEvents(list) {
       externalEvents = Array.isArray(list) ? list : [];
@@ -390,8 +475,81 @@ function initCalendar() {
     },
     getEvents() {
       return externalEvents;
-    }
+    },
+    setBirthdays(list) {
+      externalBirthdays = Array.isArray(list) ? list : [];
+      renderCalendar(currentMonth, currentYear);
+      checkTodayCelebrations(externalBirthdays);
+    },
+    getBirthdays() {
+      return externalBirthdays;
+    },
+    triggerConfetti
   };
+}
+
+/** Ráfaga festiva de confeti en Canvas puro sin dependencias externas */
+function triggerConfetti() {
+  if (document.getElementById('cl-confetti-canvas')) return;
+  const canvas = document.createElement('canvas');
+  canvas.id = 'cl-confetti-canvas';
+  canvas.style.position = 'fixed';
+  canvas.style.top = '0';
+  canvas.style.left = '0';
+  canvas.style.width = '100vw';
+  canvas.style.height = '100vh';
+  canvas.style.pointerEvents = 'none';
+  canvas.style.zIndex = '99999';
+  document.body.appendChild(canvas);
+
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  const pieces = [];
+  const colors = ['#ff6b4a', '#ffd166', '#06d6a0', '#118ab2', '#ff5964', '#a78bfa', '#ec4899'];
+
+  for (let i = 0; i < 110; i++) {
+    pieces.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * (canvas.height * 0.4) - 20,
+      r: Math.random() * 6 + 4,
+      d: Math.random() * 80 + 10,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      tilt: Math.random() * 10 - 10,
+      tiltAngle: 0,
+      tiltAngleIncremental: Math.random() * 0.08 + 0.05
+    });
+  }
+
+  let animationFrame;
+  const startTime = Date.now();
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (let i = 0; i < pieces.length; i++) {
+      const p = pieces[i];
+      p.tiltAngle += p.tiltAngleIncremental;
+      p.y += (Math.cos(p.d) + 3 + p.r / 2) / 2;
+      p.tilt = Math.sin(p.tiltAngle - i / 3) * 15;
+
+      ctx.beginPath();
+      ctx.lineWidth = p.r / 2;
+      ctx.strokeStyle = p.color;
+      ctx.moveTo(p.x + p.tilt + p.r, p.y);
+      ctx.lineTo(p.x + p.tilt, p.y + p.tilt + p.r);
+      ctx.stroke();
+    }
+
+    if (Date.now() - startTime < 4200) {
+      animationFrame = requestAnimationFrame(draw);
+    } else {
+      cancelAnimationFrame(animationFrame);
+      canvas.remove();
+    }
+  }
+
+  draw();
 }
 
 /* ==========================================================================

@@ -20,7 +20,14 @@ import { renderUsuarios } from './views/usuarios.js';
 import { renderMarket } from './views/market.js';
 import { renderOracion } from './views/oracion.js';
 import { renderAuditoria } from './views/auditoria.js';
+import { renderConsola } from './views/consola.js';
+import { initGlobalErrorCapture } from '../lib/logger.js';
+import { initPWA, installPWAApp, onPWAInstallAvailable } from '../lib/pwa.js';
 import { emptyState, drawer, field, readForm, markInvalid, clearInvalid, setLoading } from './ui.js';
+
+// Inicializar captura global de excepciones y PWA offline
+initGlobalErrorCapture();
+initPWA();
 
 const root = qs('#clg-app');
 
@@ -34,7 +41,8 @@ const NAV_ITEMS = [
   { path: 'oracion', label: 'Muro de Clamor', icon: 'fa-hands-praying', permission: 'prayers.reply' },
   { path: 'ajustes', label: 'Ajustes del Sitio', icon: 'fa-sliders', permission: 'content.write' },
   { path: 'usuarios', label: 'Usuarios y Roles', icon: 'fa-users-gear', permission: 'users.manage' },
-  { path: 'auditoria', label: 'Auditoría', icon: 'fa-clipboard-list', permission: 'audit.view' }
+  { path: 'auditoria', label: 'Auditoría', icon: 'fa-clipboard-list', permission: 'audit.view' },
+  { path: 'consola', label: 'Consola Técnica Dev', icon: 'fa-terminal', permission: 'superadmin.only' }
 ];
 
 defineRoute('panel', renderPanel);
@@ -47,6 +55,7 @@ defineRoute('oracion', renderOracion, 'prayers.reply');
 defineRoute('ajustes', renderAjustes, 'content.write');
 defineRoute('usuarios', renderUsuarios, 'users.manage');
 defineRoute('auditoria', renderAuditoria, 'audit.view');
+defineRoute('consola', renderConsola, 'superadmin.only');
 
 setNotFound((container) => {
   container.innerHTML = emptyState({
@@ -181,6 +190,12 @@ function renderNoProfile(session) {
 function renderShell() {
   const profile = getState().profile || {};
 
+  const isSuper = profile.role === 'superadmin';
+  const visibleNav = NAV_ITEMS.filter((item) => {
+    if (item.permission === 'superadmin.only') return isSuper;
+    return !item.permission || can(profile, item.permission);
+  });
+
   root.innerHTML = `
     <div class="clg-layout">
       <aside class="clg-sidebar" id="clg-sidebar">
@@ -192,7 +207,7 @@ function renderShell() {
           </div>
         </div>
         <nav class="clg-nav" id="clg-nav">
-          ${NAV_ITEMS.filter((item) => !item.permission || can(profile, item.permission))
+          ${visibleNav
             .map(
               (item) => `
             <a href="#/${item.path}" class="clg-nav-link" data-nav="${item.path}">
@@ -221,6 +236,16 @@ function renderShell() {
             <i class="fas fa-bars"></i>
           </button>
           <div class="clg-topbar-spacer"></div>
+          <button type="button" class="clg-btn clg-btn-sm" id="btn-install-pwa" style="display: none; background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.35); font-size: 0.78rem; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px; margin-right: 8px;" title="Instalar CLGestión en tu dispositivo">
+            <i class="fas fa-download"></i> <span>Instalar App Localmente</span>
+          </button>
+          ${
+            isSuper
+              ? `<a href="#/consola" class="clg-btn clg-btn-sm" style="background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); font-size: 0.78rem; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px; margin-right: 8px;" title="Abrir consola de diagnóstico en vivo">
+                   <i class="fas fa-terminal"></i> <span>Consola Dev</span>
+                 </a>`
+              : ''
+          }
           <div class="clg-user-chip" style="cursor: pointer;" data-action="my-profile" title="Clic para gestionar tu perfil (${escapeHTML(profile.email || '')})">
             <span class="clg-avatar clg-avatar-sm">${escapeHTML(initials(profile.displayName || profile.email))}</span>
             <div class="clg-user-chip-text">
@@ -235,6 +260,14 @@ function renderShell() {
       <div id="clg-my-profile-drawer"></div>
     </div>
   `;
+
+  const btnInstall = qs('#btn-install-pwa', root);
+  onPWAInstallAvailable((canInstall) => {
+    if (btnInstall) {
+      btnInstall.style.display = canInstall ? 'inline-flex' : 'none';
+    }
+  });
+  btnInstall?.addEventListener('click', installPWAApp);
 
   qs('[data-action="logout"]', root)?.addEventListener('click', doLogout);
 

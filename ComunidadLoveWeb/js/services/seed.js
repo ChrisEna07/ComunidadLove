@@ -259,7 +259,8 @@ export async function hardResetFactoryData(actor) {
     'announcements',
     'prayers',
     'gallery_items',
-    'ministries'
+    'ministries',
+    'members'
   ];
 
   for (const colName of collectionsToWipe) {

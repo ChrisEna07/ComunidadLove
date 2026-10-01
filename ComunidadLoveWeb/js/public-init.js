@@ -28,6 +28,8 @@ import { contienePalabrasObscenas } from './lib/text.js';
 import { bindLiveFormValidation } from './lib/validation.js';
 import { watchMinistries } from './services/ministries.js';
 import { watchGallery } from './services/gallery.js';
+import { watchPublicBirthdays } from './services/members.js';
+import { initPWA } from './lib/pwa.js';
 
 let settingsUnsub = null;
 let eventsUnsub = null;
@@ -36,6 +38,7 @@ let productsUnsub = null;
 let prayersUnsub = null;
 let ministriesUnsub = null;
 let galleryUnsub = null;
+let birthdaysUnsub = null;
 const warned = new Set();
 let lastPrayersList = [];
 let currentPrayerTab = 'peticiones';
@@ -47,6 +50,10 @@ function whenReady(callback) {
     callback();
   }
 }
+
+whenReady(() => {
+  initPWA();
+});
 
 /**
  * Aviso por bloque. Antes era un único aviso global; con varias colecciones
@@ -650,20 +657,24 @@ function renderPrayerCard(prayer) {
         replies.length
           ? `<div class="prayer-answers">
               ${replies
-                .map(
-                  (reply) => `
+                .map((reply) => {
+                  const badgeText = reply.authorBadge || reply.badgeLabel || 'Equipo Pastoral';
+                  const nameText = reply.responderName || reply.authorName || 'Servidor';
+                  const roleText = (reply.responderRole || 'servidor').toUpperCase();
+                  const authorDisplay = `${badgeText} · ${nameText} (${roleText})`;
+                  return `
                 <div class="prayer-answer">
                   <div class="prayer-answer-badge">
                     <i class="fas fa-circle-check" aria-hidden="true"></i>
-                    ${escapeHTML(reply.badgeLabel || 'Equipo Love')}
+                    <span>${escapeHTML(authorDisplay)}</span>
                     <span class="prayer-verified" title="Respuesta verificada del equipo">
                       <i class="fas fa-badge-check" aria-hidden="true"></i>
                     </span>
                   </div>
                   <p>${escapeHTML(reply.text)}</p>
                   <small>${escapeHTML(smartDate(reply.createdAt))}</small>
-                </div>`
-                )
+                </div>`;
+                })
                 .join('')}
             </div>`
           : ''
@@ -1079,6 +1090,17 @@ export function initPublicSync() {
         }
       );
 
+      birthdaysUnsub = watchPublicBirthdays(
+        (birthdays) => {
+          if (typeof window.CL_Calendar?.setBirthdays === 'function') {
+            window.CL_Calendar.setBirthdays(birthdays || []);
+          }
+        },
+        (err) => {
+          console.warn('[CL] No se pudieron sincronizar los cumpleaños públicos:', err);
+        }
+      );
+
       bindPublicInteractions();
     } catch (error) {
       console.error('[CL] Fallo al iniciar la sincronización pública:', error);
@@ -1092,7 +1114,7 @@ export function initPublicSync() {
 }
 
 export function stopPublicSync() {
-  [settingsUnsub, eventsUnsub, announcementsUnsub, productsUnsub, prayersUnsub, ministriesUnsub, galleryUnsub].forEach((unsub) => {
+  [settingsUnsub, eventsUnsub, announcementsUnsub, productsUnsub, prayersUnsub, ministriesUnsub, galleryUnsub, birthdaysUnsub].forEach((unsub) => {
     try {
       if (typeof unsub === 'function') unsub();
     } catch (error) {
@@ -1106,6 +1128,7 @@ export function stopPublicSync() {
   prayersUnsub = null;
   ministriesUnsub = null;
   galleryUnsub = null;
+  birthdaysUnsub = null;
 }
 
 initPublicSync();

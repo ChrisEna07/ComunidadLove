@@ -313,11 +313,12 @@ export function renderOracion(container) {
       if (!data.text) return markInvalid(replyForm, 'Escribe la respuesta.');
 
       setLoading(replyForm, true, 'Publicando…');
-      try {
         await addPrayerReply(prayer.id, {
           text: data.text,
           role: actor.role,
-          authorName: actor.displayName
+          authorName: actor.displayName || actor.fullName || 'Equipo Love',
+          responderName: actor.fullName || actor.displayName || 'Servidor',
+          responderRole: actor.role || 'servidor'
         });
         await logAudit({
           actor,
@@ -400,14 +401,20 @@ function renderCard(prayer) {
 
       ${
         answered
-          ? `<div class="clg-prayer-answer">
-               <div class="clg-prayer-answer-head">
-                 <i class="fas fa-circle-check"></i>
-                 <strong>${escapeHTML(prayer.replies[prayer.replies.length - 1].badgeLabel || 'Equipo Love')}</strong>
-                 <small>${escapeHTML(formatDateTime(prayer.replies[prayer.replies.length - 1].createdAt))}</small>
-               </div>
-               <p>${escapeHTML(prayer.replies[prayer.replies.length - 1].text)}</p>
-             </div>`
+          ? (() => {
+              const lastReply = prayer.replies[prayer.replies.length - 1];
+              const lastBadge = lastReply.authorBadge || lastReply.badgeLabel || 'Equipo Pastoral';
+              const lastName = lastReply.responderName || lastReply.authorName || 'Equipo Love';
+              const lastRole = (lastReply.responderRole || 'servidor').toUpperCase();
+              return `<div class="clg-prayer-answer">
+                <div class="clg-prayer-answer-head">
+                  <i class="fas fa-circle-check"></i>
+                  <strong>${escapeHTML(lastBadge)} · ${escapeHTML(lastName)} (${escapeHTML(lastRole)})</strong>
+                  <small>${escapeHTML(formatDateTime(lastReply.createdAt))}</small>
+                </div>
+                <p>${escapeHTML(lastReply.text)}</p>
+              </div>`;
+            })()
           : ''
       }
 
@@ -437,15 +444,20 @@ function renderReplies(replies) {
       <h4>Respuestas publicadas (${replies.length})</h4>
       ${replies
         .map(
-          (reply) => `
-        <div class="clg-reply">
-          <div class="clg-reply-head">
-            <i class="fas fa-circle-check"></i>
-            <strong>${escapeHTML(reply.badgeLabel || 'Equipo Love')}</strong>
-            <small>${escapeHTML(formatDateTime(reply.createdAt))}</small>
-          </div>
-          <p>${escapeHTML(reply.text)}</p>
-        </div>`
+          (reply) => {
+            const badgeText = reply.authorBadge || reply.badgeLabel || 'Equipo Pastoral';
+            const nameText = reply.responderName || reply.authorName || 'Equipo Love';
+            const roleText = (reply.responderRole || 'servidor').toUpperCase();
+            return `
+            <div class="clg-reply">
+              <div class="clg-reply-head">
+                <i class="fas fa-circle-check"></i>
+                <strong>${escapeHTML(badgeText)} · ${escapeHTML(nameText)} (${escapeHTML(roleText)})</strong>
+                <small>${escapeHTML(formatDateTime(reply.createdAt))}</small>
+              </div>
+              <p>${escapeHTML(reply.text)}</p>
+            </div>`;
+          }
         )
         .join('')}
     </div>

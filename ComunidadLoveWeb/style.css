@@ -958,6 +958,74 @@ header.scrolled .logo img {
   color: var(--light);
 }
 
+.calendar-day.has-birthday {
+  position: relative;
+}
+
+.calendar-bday-badge {
+  position: absolute;
+  top: 1px;
+  right: 2px;
+  font-size: 0.72rem;
+  line-height: 1;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.18));
+  animation: bdayWiggle 2.5s infinite ease-in-out;
+}
+
+@keyframes bdayWiggle {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  25% { transform: rotate(-8deg) scale(1.1); }
+  75% { transform: rotate(8deg) scale(1.1); }
+}
+
+/* Banner animado de felicitación de cumpleaños en vivo */
+.cl-birthday-banner {
+  background: linear-gradient(135deg, #ff6b4a 0%, #ff8e53 50%, #ffa07a 100%);
+  color: #ffffff;
+  border-radius: 16px;
+  padding: 16px 24px;
+  margin-bottom: 28px;
+  box-shadow: 0 10px 25px -5px rgba(255, 107, 74, 0.35);
+  animation: bannerGlow 3s infinite alternate;
+}
+
+@keyframes bannerGlow {
+  0% { box-shadow: 0 6px 18px rgba(255, 107, 74, 0.3); transform: translateY(0); }
+  100% { box-shadow: 0 12px 28px rgba(255, 107, 74, 0.55); transform: translateY(-2px); }
+}
+
+.cl-birthday-banner-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  text-align: center;
+}
+
+.cl-bday-sparkle {
+  font-size: 2rem;
+  animation: sparkleRotate 2s infinite ease-in-out;
+}
+
+@keyframes sparkleRotate {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  50% { transform: scale(1.25) rotate(15deg); }
+}
+
+.cl-bday-text strong {
+  display: block;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  margin-bottom: 2px;
+}
+
+.cl-bday-text span {
+  font-size: 0.95rem;
+  opacity: 0.95;
+}
+
 .calendar-event-details {
   margin-top: 24px;
   padding-top: 20px;

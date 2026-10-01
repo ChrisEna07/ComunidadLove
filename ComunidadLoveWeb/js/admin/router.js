@@ -67,14 +67,17 @@ async function render(path, params) {
   document.body.dataset.clgRoute = path;
 
   const profile = getProfile();
-  if (entry && entry.permission && !can(profile, entry.permission)) {
+  const isSuperOnly = entry && entry.permission === 'superadmin.only';
+  const hasAccess = isSuperOnly
+    ? profile?.role === 'superadmin'
+    : (!entry || !entry.permission || can(profile, entry.permission));
+
+  if (!hasAccess) {
     outlet.innerHTML = `
       <div class="clg-error-state">
         <i class="fas fa-lock"></i>
         <h2>No tienes acceso a esta sección</h2>
-        <p>Tu rol (${escapeHTML(roleLabel(profile?.role))}) no incluye el permiso
-           <code>${escapeHTML(entry.permission)}</code> y no te ha sido delegado.
-           Pídeselo a un administrador si lo necesitas.</p>
+        <p>Esta sección es de diagnóstico avanzado y solo está disponible para el <strong>Super Admin</strong> de la plataforma.</p>
         <button class="clg-btn clg-btn-primary" type="button" data-route-home>
           <i class="fas fa-house"></i><span>Ir al resumen</span>
         </button>

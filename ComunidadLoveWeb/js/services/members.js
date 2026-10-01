@@ -14,6 +14,7 @@ import {
   query,
   serverTimestamp,
   updateDoc,
+  where,
   writeBatch
 } from 'firebase/firestore';
 import { db, requireService } from '../firebase.js';
@@ -99,6 +100,43 @@ export function watchMembers(callback, onError) {
     );
   } catch (error) {
     console.warn('[CL] No se pudo suscribir a miembros:', error);
+    if (onError) onError(error);
+    callback([]);
+    return () => {};
+  }
+}
+
+export function watchPublicBirthdays(callback, onError) {
+  try {
+    return onSnapshot(
+      query(collection(db, COLLECTION), where('status', '==', 'activo')),
+      (snapshot) => {
+        const list = snapshot.docs
+          .map((d) => {
+            const data = d.data();
+            const birth = parseBirthDate(data.birthDate);
+            const m = Number.isFinite(data.birthMonth) ? data.birthMonth : birth ? birth.month : null;
+            const day = Number.isFinite(data.birthDay) ? data.birthDay : birth ? birth.day : null;
+            if (!m || !day) return null;
+            return {
+              id: d.id,
+              fullName: data.fullName || 'Miembro',
+              birthDate: data.birthDate || '',
+              birthMonth: m,
+              birthDay: day
+            };
+          })
+          .filter(Boolean);
+        callback(list);
+      },
+      (error) => {
+        console.warn('[CL] Error en tiempo real de cumpleaños:', error);
+        if (onError) onError(error);
+        callback([]);
+      }
+    );
+  } catch (error) {
+    console.warn('[CL] No se pudo suscribir a cumpleaños:', error);
     if (onError) onError(error);
     callback([]);
     return () => {};

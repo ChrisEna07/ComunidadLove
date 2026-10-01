@@ -345,22 +345,27 @@ export async function toggleReaction(prayerId, kind, active) {
  * y se reescribe completo, que para el volumen de un muro de clamor es
  * suficiente y evita tener que mantener contadores aparte.
  */
-export async function addPrayerReply(prayerId, { text, role, authorName }) {
+export async function addPrayerReply(prayerId, { text, role, authorName, responderName, responderRole }) {
   requireService(db, 'Firestore');
   const cleanText = String(text || '').trim().slice(0, 1000);
   if (!cleanText) throw new Error('Escribe la respuesta.');
 
-  const badge = responseBadge(role);
-  // El documento `prayers/{id}` es legible por el público cuando isPublic, así
-  // que aquí NO se guarda el uid del que responde: quedaría expuesto en la
-  // consola de cualquier visitante. `role` tampoco se guarda en crudo; la
-  // insignia pública ya viene de `badgeLabel`. La trazabilidad interna vive en
-  // `audit_logs` (acción `prayers.reply`, con userId y userName).
+  const actualRole = responderRole || role || 'servidor';
+  const actualName = responderName || authorName || 'Servidor';
+  const isPastoral = (actualRole === 'admin' || actualRole === 'superadmin' || actualRole === 'pastor');
+  const authorBadge = isPastoral ? 'Equipo Pastoral' : 'Servidor Love';
+
   const entry = {
+    id: (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : `reply_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
     text: cleanText,
-    authorName: String(authorName || 'Equipo Love').trim().slice(0, 60),
-    badgeLabel: badge.label,
-    createdAt: Timestamp.now()
+    createdAt: Timestamp.now(),
+    responderName: String(actualName).trim().slice(0, 60),
+    responderRole: String(actualRole).toLowerCase(),
+    authorBadge,
+    badgeLabel: authorBadge,
+    authorName: String(actualName).trim().slice(0, 60)
   };
 
   try {
