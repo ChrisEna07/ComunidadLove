@@ -68,6 +68,14 @@ function renderBannerAlert(settings) {
     host.innerHTML = '';
     return;
   }
+  try {
+    const dismissed = sessionStorage.getItem('cl_dismissed_banner');
+    if (dismissed === alert.message) {
+      host.hidden = true;
+      return;
+    }
+  } catch {}
+
   const type = ['info', 'warning'].includes(alert.type) ? alert.type : 'info';
   const icon = type === 'warning' ? 'fa-triangle-exclamation' : 'fa-circle-info';
   host.hidden = false;
@@ -85,6 +93,7 @@ function renderBannerAlert(settings) {
   `;
   host.querySelector('.cl-banner-close')?.addEventListener('click', () => {
     host.hidden = true;
+    try { sessionStorage.setItem('cl_dismissed_banner', alert.message); } catch {}
   });
 }
 
@@ -170,7 +179,7 @@ function applySocialLinks(settings) {
    AVISOS (announcements)
    -------------------------------------------------------------------------- */
 function renderAnnouncements(list) {
-  const host = qs('#announcements-list');
+  const host = qs('#avisos-container') || qs('#announcements-list') || qs('.announcements-grid');
   if (!host) return;
   const visible = (list || []).filter((item) => isAnnouncementVisible(item));
 
@@ -186,21 +195,21 @@ function renderAnnouncements(list) {
 
   host.innerHTML = visible
     .map((item) => {
-      const priorityTag = item.priority >= 2
-        ? '<span class="announcement-badge announcement-badge-high">Importante</span>'
-        : item.priority === 1
-          ? '<span class="announcement-badge">Nuevo</span>'
-          : '';
+      const badgeText = item.badge || (item.priority >= 2 ? 'Importante' : item.priority === 1 ? 'Nuevo' : '');
+      const priorityTag = badgeText
+        ? `<span class="announcement-badge ${item.priority >= 2 || String(badgeText).toLowerCase().includes('import') ? 'announcement-badge-high' : ''}">${escapeHTML(badgeText)}</span>`
+        : '';
       const expires = item.expirationDate
         ? `<span class="announcement-expires"><i class="far fa-clock"></i> Hasta el ${escapeHTML(formatDate(item.expirationDate))}</span>`
         : '';
+      const bodyText = item.content || item.message || '';
       return `
         <article class="announcement-card">
           <div class="announcement-head">
             <h3>${escapeHTML(item.title)}</h3>
             ${priorityTag}
           </div>
-          <p>${escapeHTML(item.message)}</p>
+          <p>${escapeHTML(bodyText)}</p>
           <div class="announcement-meta">
             <span><i class="far fa-calendar"></i> ${escapeHTML(smartDate(item.publishDate))}</span>
             ${expires}
@@ -567,8 +576,14 @@ function renderPublicPrayers(list) {
   if (!host) return;
 
   const prayers = lastPrayersList || [];
-  const peticiones = prayers.filter((p) => p.type !== 'inquietud');
-  const inquietudes = prayers.filter((p) => p.type === 'inquietud');
+  const peticiones = prayers.filter((p) => {
+    const t = String(p.type || p.category || '').toLowerCase();
+    return t !== 'inquietud' && t !== 'pregunta';
+  });
+  const inquietudes = prayers.filter((p) => {
+    const t = String(p.type || p.category || '').toLowerCase();
+    return t === 'inquietud' || t === 'pregunta';
+  });
 
   // Actualizar contadores en pestañas
   const countPeticiones = qs('#count-peticiones');
@@ -837,9 +852,11 @@ export function initPublicSync() {
 
   if (!firebaseReady) {
     warnOnce('general');
-    // Aun sin Firebase el formulario de oración está en el HTML: se avisa en
-    // vez de dejar un formulario que no envía nada.
     whenReady(() => {
+      renderMarket([]);
+      renderAnnouncements([]);
+      renderUpcomingEvents([]);
+      renderPublicPrayers([]);
       bindPublicInteractions();
       showToast('Contenido en modo estático: no se pudo conectar con el servidor.', 'warning');
     });
@@ -863,7 +880,9 @@ export function initPublicSync() {
           applyContact(settings);
           applySocialLinks(settings);
         },
-        () => warnOnce('contenido')
+        (err) => {
+          console.error('[CL] Error en tiempo real de configuración:', err);
+        }
       );
 
       eventsUnsub = watchEvents(
@@ -871,27 +890,44 @@ export function initPublicSync() {
           renderUpcomingEvents(active);
           pushCalendarEvents(active);
         },
-        () => warnOnce('contenido')
+        (err) => {
+          console.error('[CL] Error en tiempo real de eventos:', err);
+          renderUpcomingEvents([]);
+          pushCalendarEvents([]);
+        }
       );
 
       announcementsUnsub = watchAnnouncements(
         (list) => renderAnnouncements(list),
-        () => warnOnce('avisos')
+        (err) => {
+          console.error('[CL] Error en tiempo real de avisos:', err);
+          renderAnnouncements([]);
+        }
       );
 
       productsUnsub = watchActiveProducts(
         (list) => renderMarket(list),
-        () => warnOnce('market')
+        (err) => {
+          console.error('[CL] Error en tiempo real de Love Market:', err);
+          renderMarket([]);
+        }
       );
 
       prayersUnsub = watchPublicPrayers(
         (list) => renderPublicPrayers(list),
-        () => warnOnce('oracion')
+        (err) => {
+          console.error('[CL] Error en tiempo real de oraciones:', err);
+          renderPublicPrayers([]);
+        }
       );
 
       bindPublicInteractions();
     } catch (error) {
       console.error('[CL] Fallo al iniciar la sincronización pública:', error);
+      renderMarket([]);
+      renderAnnouncements([]);
+      renderUpcomingEvents([]);
+      renderPublicPrayers([]);
       showToast('No se pudo conectar con el servidor de contenido.', 'warning');
     }
   });

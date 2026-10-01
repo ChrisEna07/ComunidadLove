@@ -35,7 +35,7 @@ import {
   where
 } from 'firebase/firestore';
 import { db, requireService } from '../firebase.js';
-import { toDate } from '../lib/dates.js';
+import { toDate, parseDate } from '../lib/dates.js';
 
 import { contienePalabrasObscenas } from '../lib/text.js';
 
@@ -136,18 +136,21 @@ function emptyReactions() {
 
 function decorate(id, data) {
   const counts = { ...emptyReactions(), ...(data.reactions || {}) };
+  const rawType = String(data.type || data.category || 'petición').toLowerCase();
+  const isQuestion = rawType === 'inquietud' || rawType === 'pregunta';
   return {
     id,
     name: data.name || 'Anónimo',
     text: data.text || '',
-    type: data.type === 'inquietud' ? 'inquietud' : 'petición',
+    type: isQuestion ? 'inquietud' : 'petición',
+    category: isQuestion ? 'inquietud' : 'oracion',
     status: data.status || 'abierta',
     isPublic: data.isPublic !== false,
     replies: Array.isArray(data.replies) ? data.replies : [],
     reactions: counts,
     totalReactions: REACTIONS.reduce((sum, r) => sum + (counts[r.kind] || 0), 0),
-    createdAt: toDate(data.createdAt),
-    respondedAt: toDate(data.respondedAt)
+    createdAt: data.createdAt ? parseDate(data.createdAt) : new Date(),
+    respondedAt: data.respondedAt ? parseDate(data.respondedAt) : null
   };
 }
 
@@ -265,12 +268,13 @@ export async function createPrayer({ name, type, text }) {
   if (contienePalabrasObscenas(cleanName) || contienePalabrasObscenas(cleanText)) {
     throw new Error('Por favor expresa tu petición o inquietud con respeto. Se detectó vocabulario inapropiado.');
   }
-
   try {
+    const isQuestion = type === 'inquietud' || type === 'pregunta';
     const ref = await addDoc(collection(db, COLLECTION), {
       name: cleanName,
       text: cleanText,
-      type: type === 'inquietud' ? 'inquietud' : 'petición',
+      type: isQuestion ? 'inquietud' : 'petición',
+      category: isQuestion ? 'inquietud' : 'oracion',
       status: 'abierta',
       isPublic: true,
       replies: [],

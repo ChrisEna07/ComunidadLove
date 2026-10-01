@@ -1,7 +1,7 @@
 /* ==========================================================================
-   SERVICIO: ANUNCIOS
-   Colección: announcements
-   Se filtran por fecha de publicación y expiración en el cliente.
+   SERVICIO: ANUNCIOS Y AVISOS
+   Colecciones soportadas: announcements y notices
+   Se filtran y ordenan en cliente tolerante a esquemas.
    ========================================================================== */
 
 import {
@@ -10,61 +10,103 @@ import {
   deleteDoc,
   doc,
   onSnapshot,
-  orderBy,
-  query,
   serverTimestamp,
   setDoc
 } from 'firebase/firestore';
 import { db, requireService } from '../firebase.js';
-import { toDate } from '../lib/dates.js';
+import { toDate, parseDate } from '../lib/dates.js';
 
 const COLLECTION = 'announcements';
 
 function decorate(id, data) {
+  const content = data.content || data.message || data.contenido || data.description || '';
+  const title = data.title || data.titulo || 'Aviso';
+  const badge = data.badge || (Number(data.priority) >= 2 ? 'Importante' : Number(data.priority) === 1 ? 'Nuevo' : '');
+  const publishDate = data.publishDate || data.date || data.fecha || data.createdAt ? parseDate(data.publishDate || data.date || data.fecha || data.createdAt) : new Date();
+  const expirationDate = data.expirationDate ? parseDate(data.expirationDate) : null;
+  const priority = Number.isFinite(data.priority)
+    ? Number(data.priority)
+    : (String(badge).toLowerCase().includes('import') ? 2 : badge ? 1 : 0);
+
   return {
     id,
-    title: data.title || '',
-    message: data.message || '',
-    publishDate: toDate(data.publishDate),
-    expirationDate: toDate(data.expirationDate),
-    priority: Number.isFinite(data.priority) ? data.priority : 0,
-    createdAt: toDate(data.createdAt)
+    title,
+    message: content,
+    content,
+    badge,
+    publishDate,
+    expirationDate,
+    priority,
+    createdAt: data.createdAt ? parseDate(data.createdAt) : publishDate
   };
 }
 
 export function isAnnouncementVisible(announcement, reference = new Date()) {
   const now = (toDate(reference) || new Date()).getTime();
-  if (announcement.publishDate && announcement.publishDate.getTime() > now) return false;
-  if (announcement.expirationDate && announcement.expirationDate.getTime() < now) return false;
+  if (announcement.expirationDate && parseDate(announcement.expirationDate).getTime() < now) return false;
   return true;
 }
 
 export function sortAnnouncements(list) {
   return [...(list || [])].sort((a, b) => {
-    if (b.priority !== a.priority) return b.priority - a.priority;
-    const da = a.publishDate ? a.publishDate.getTime() : 0;
-    const db2 = b.publishDate ? b.publishDate.getTime() : 0;
+    if (b.priority !== a.priority) return (b.priority || 0) - (a.priority || 0);
+    const da = a.publishDate ? parseDate(a.publishDate).getTime() : 0;
+    const db2 = b.publishDate ? parseDate(b.publishDate).getTime() : 0;
     return db2 - da;
   });
 }
 
 export function watchAnnouncements(callback, onError) {
+  let annMap = new Map();
+  let notMap = new Map();
+
+  function notify() {
+    const combined = new Map();
+    annMap.forEach((v, k) => combined.set(k, v));
+    notMap.forEach((v, k) => combined.set(k, v));
+    const sorted = sortAnnouncements(Array.from(combined.values()));
+    callback(sorted);
+  }
+
+  let unsubAnn = () => {};
+  let unsubNot = () => {};
+
   try {
-    return onSnapshot(
-      query(collection(db, COLLECTION), orderBy('priority', 'desc')),
-      (snapshot) => callback(sortAnnouncements(snapshot.docs.map((d) => decorate(d.id, d.data())))),
+    unsubAnn = onSnapshot(
+      collection(db, COLLECTION),
+      (snapshot) => {
+        annMap.clear();
+        snapshot.docs.forEach((d) => annMap.set(d.id, decorate(d.id, d.data())));
+        notify();
+      },
       (error) => {
-        console.warn('[CL] Error en tiempo real de anuncios:', error);
+        console.warn('[CL] Error en tiempo real de announcements:', error);
         if (onError) onError(error);
-        callback([]);
+        notify();
       }
     );
   } catch (error) {
-    console.warn('[CL] No se pudo suscribir a anuncios:', error);
+    console.warn('[CL] No se pudo conectar a announcements:', error);
     if (onError) onError(error);
-    callback([]);
-    return () => {};
+    notify();
   }
+
+  try {
+    unsubNot = onSnapshot(
+      collection(db, 'notices'),
+      (snapshot) => {
+        notMap.clear();
+        snapshot.docs.forEach((d) => notMap.set(d.id, decorate(d.id, d.data())));
+        notify();
+      },
+      () => {}
+    );
+  } catch {}
+
+  return () => {
+    try { unsubAnn(); } catch {}
+    try { unsubNot(); } catch {}
+  };
 }
 
 function toPayload(data) {

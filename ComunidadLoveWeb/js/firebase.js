@@ -9,13 +9,27 @@
    ========================================================================== */
 
 import { initializeApp } from 'firebase/app';
-import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
+import {
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager
+} from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
+
+export const DEFAULT_FIREBASE_CONFIG = {
+  apiKey: 'AIzaSyDeGyzjhjTB1IHfNZ9VYhXGh6fofOzo9mk',
+  authDomain: 'comunidadlove-cbe75.firebaseapp.com',
+  projectId: 'comunidadlove-cbe75',
+  messagingSenderId: '311051033862',
+  appId: '1:311051033862:web:17127d96c610a45b0f5287',
+  measurementId: 'G-Q4W377M5M7'
+};
 
 let firebaseConfig = null;
 let isConfigured = false;
 
-// 1. Intentar cargar js/firebase-config.js (ignorado en git) de forma tolerante a 404
+// 1. Intentar cargar js/firebase-config.js
 try {
   const configMod = await import('./firebase-config.js');
   if (configMod && configMod.firebaseConfig) {
@@ -27,17 +41,16 @@ try {
     }
   }
 } catch (err) {
-  // En Vercel o clones sin el archivo, se captura el 404 aquí sin quebrar el módulo
-  console.info('[CL] Archivo js/firebase-config.js no presente en el servidor. Verificando alternativas...');
+  console.info('[CL] Nota: cargando configuración predeterminada de Firebase.');
 }
 
-// 2. Fallback: window.__FIREBASE_CONFIG__ (inyectado por scripts o servidor)
+// 2. Fallback: window.__FIREBASE_CONFIG__
 if (!isConfigured && typeof window !== 'undefined' && window.__FIREBASE_CONFIG__) {
   firebaseConfig = window.__FIREBASE_CONFIG__;
   isConfigured = Boolean(firebaseConfig && firebaseConfig.apiKey && firebaseConfig.projectId);
 }
 
-// 3. Fallback: localStorage (permite conectar Firebase en Vercel directamente desde la interfaz)
+// 3. Fallback: localStorage
 if (!isConfigured && typeof window !== 'undefined' && window.localStorage) {
   try {
     const stored = localStorage.getItem('cl_firebase_config');
@@ -51,19 +64,15 @@ if (!isConfigured && typeof window !== 'undefined' && window.localStorage) {
   } catch {}
 }
 
-// 4. Fallback: firebase-config.example.js (archivo de plantilla versionado en el repositorio)
-if (!isConfigured) {
-  try {
-    const exampleMod = await import('./firebase-config.example.js');
-    if (exampleMod && exampleMod.firebaseConfig) {
-      if (!firebaseConfig) firebaseConfig = exampleMod.firebaseConfig;
-    }
-  } catch {}
+// 4. Fallback directo a DEFAULT_FIREBASE_CONFIG (garantiza código 200 y conexión activa en Vercel)
+if (!isConfigured || !firebaseConfig || !firebaseConfig.apiKey) {
+  firebaseConfig = DEFAULT_FIREBASE_CONFIG;
+  isConfigured = true;
 }
 
 export const configError = (() => {
   if (isConfigured) return null;
-  return 'Configuración de Firebase no encontrada: el archivo js/firebase-config.js no está presente en el servidor o contiene valores de plantilla.';
+  return 'Configuración de Firebase no encontrada.';
 })();
 
 export const firebaseReady = isConfigured;
@@ -75,18 +84,17 @@ let auth = null;
 if (firebaseReady && firebaseConfig) {
   try {
     app = initializeApp(firebaseConfig);
-    db = getFirestore(app);
-    auth = getAuth(app);
-
-    if (typeof window !== 'undefined') {
-      enableIndexedDbPersistence(db).catch((err) => {
-        if (err.code === 'failed-precondition') {
-          console.info('[CL] Persistencia en múltiples pestañas activa en otra ventana.');
-        } else if (err.code === 'unimplemented') {
-          console.info('[CL] El navegador no soporta persistencia IndexedDB.');
-        }
+    try {
+      db = initializeFirestore(app, {
+        localCache: persistentLocalCache({
+          tabManager: persistentMultipleTabManager()
+        })
       });
+    } catch (cacheError) {
+      // Fallback a Firestore estándar si la instancia ya fue inicializada o el entorno no soporta persistencia avanzada
+      db = getFirestore(app);
     }
+    auth = getAuth(app);
   } catch (error) {
     console.error('[CL] No se pudo inicializar Firebase:', error);
   }

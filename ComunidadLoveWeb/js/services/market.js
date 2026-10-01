@@ -89,18 +89,22 @@ export function watchProducts(callback, onError) {
 export function watchActiveProducts(callback, onError) {
   try {
     return onSnapshot(
-      query(collection(db, COLLECTION), where('isActive', '==', true)),
+      collection(db, COLLECTION),
       (snapshot) => {
-        callback(snapshot.docs.map((d) => decorate(d.id, d.data())).sort(byName));
+        const list = snapshot.docs
+          .map((d) => decorate(d.id, d.data()))
+          .filter((p) => p.isActive !== false)
+          .sort(byName);
+        callback(list);
       },
       (error) => {
-        console.warn('[CL] Error en tiempo real de productos publicados:', error);
+        console.error('[CL] Error en tiempo real de productos publicados:', error);
         if (onError) onError(error);
         callback([]);
       }
     );
   } catch (error) {
-    console.warn('[CL] No se pudo suscribir a los productos publicados:', error);
+    console.error('[CL] No se pudo suscribir a los productos publicados:', error);
     if (onError) onError(error);
     callback([]);
     return () => {};

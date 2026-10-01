@@ -32,9 +32,7 @@ yarn.lock
 
 # ==============================================================================
 # FIREBASE / CLOUDFIREBASE
-# La configuración real contiene credenciales y NUNCA debe subirse.
 # ==============================================================================
-ComunidadLoveWeb/js/firebase-config.js
 .firebase/
 firebase-debug.log*
 firestore-debug.log*

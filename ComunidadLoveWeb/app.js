@@ -198,10 +198,26 @@ const MONTH_NAMES = [
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
 ];
 
+function parseSafeDate(val) {
+  if (!val) return null;
+  if (val instanceof Date) return Number.isNaN(val.getTime()) ? null : val;
+  if (typeof val === 'object' && typeof val.toDate === 'function') {
+    try { return val.toDate(); } catch {}
+  }
+  if (typeof val === 'object' && typeof val.seconds === 'number') {
+    return new Date(val.seconds * 1000);
+  }
+  if (typeof val === 'string' || typeof val === 'number') {
+    const d = new Date(val);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+}
+
 /** Formatea una fecha/hora Firestore como "7:00 PM" para el detalle del calendario. */
 function formatClock(value) {
-  const d = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(d.getTime())) return '';
+  const d = parseSafeDate(value);
+  if (!d) return '';
   const suffix = d.getHours() >= 12 ? 'PM' : 'AM';
   const hour12 = d.getHours() % 12 === 0 ? 12 : d.getHours() % 12;
   return `${hour12}:${String(d.getMinutes()).padStart(2, '0')} ${suffix}`;
@@ -231,11 +247,11 @@ function initCalendar() {
     const d = dateObj.getDate();
 
     return externalEvents.find((event) => {
-      if (!event.dateStart) return false;
-      const s = new Date(event.dateStart);
+      const s = parseSafeDate(event.dateStart);
+      if (!s) return false;
       if (s.getFullYear() === y && s.getMonth() === m && s.getDate() === d) return true;
       if (event.dateEnd) {
-        const e = new Date(event.dateEnd);
+        const e = parseSafeDate(event.dateEnd) || s;
         return new Date(y, m, d) >= new Date(s.getFullYear(), s.getMonth(), s.getDate())
           && new Date(y, m, d) <= new Date(e.getFullYear(), e.getMonth(), e.getDate());
       }
