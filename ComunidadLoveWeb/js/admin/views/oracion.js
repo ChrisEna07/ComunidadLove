@@ -313,6 +313,7 @@ export function renderOracion(container) {
       if (!data.text) return markInvalid(replyForm, 'Escribe la respuesta.');
 
       setLoading(replyForm, true, 'Publicando…');
+      try {
         await addPrayerReply(prayer.id, {
           text: data.text,
           role: actor.role,

@@ -79,7 +79,7 @@ export async function listEvents({ onlyActive = false } = {}) {
 export function watchEvents(callback, onError) {
   try {
     return onSnapshot(
-      query(collection(db, COLLECTION), orderBy('dateStart', 'desc')),
+      collection(db, COLLECTION),
       (snapshot) => {
         const all = snapshot.docs.map((d) => decorate(d.id, d.data()));
         callback({ all, active: sortByDate(all.filter((e) => e.isActive)) });

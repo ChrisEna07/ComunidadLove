@@ -126,12 +126,31 @@ export function daysUntil(value) {
    CUMPLEAÑOS
    -------------------------------------------------------------------------- */
 
-/** Extrae { year, month, day } de un birthDate en formato YYYY-MM-DD. */
+/** Extrae { year, month, day } de un birthDate tolerando YYYY-MM-DD, DD/MM/YYYY, ISO o Date. */
 export function parseBirthDate(birthDate) {
   if (!birthDate) return null;
-  const match = String(birthDate).match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  if (!match) return null;
-  return { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) };
+  if (typeof birthDate === 'object' && typeof birthDate.toDate === 'function') {
+    try {
+      const d = birthDate.toDate();
+      return { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() };
+    } catch {}
+  }
+  const str = String(birthDate).trim();
+  // YYYY-MM-DD o YYYY/MM/DD o YYYY-MM-DDTHH:mm:ss
+  let match = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (match) {
+    return { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) };
+  }
+  // DD/MM/YYYY o DD-MM-YYYY
+  match = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+  if (match) {
+    return { year: Number(match[3]), month: Number(match[2]), day: Number(match[1]) };
+  }
+  const d = new Date(birthDate);
+  if (!Number.isNaN(d.getTime())) {
+    return { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate() };
+  }
+  return null;
 }
 
 export function ageFrom(birthDate, reference = new Date()) {

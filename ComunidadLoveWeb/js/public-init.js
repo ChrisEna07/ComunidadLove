@@ -132,6 +132,10 @@ function renderServiceHours(settings) {
     <h3 style="margin-bottom: 24px; color: var(--secondary);">Nuestras Reuniones</h3>
     ${cards}
   `;
+
+  if (typeof window.CL_Calendar?.setServiceHours === 'function') {
+    window.CL_Calendar.setServiceHours(hours);
+  }
 }
 
 /* --------------------------------------------------------------------------

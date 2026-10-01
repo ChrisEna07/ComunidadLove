@@ -109,18 +109,21 @@ export function watchMembers(callback, onError) {
 export function watchPublicBirthdays(callback, onError) {
   try {
     return onSnapshot(
-      query(collection(db, COLLECTION), where('status', '==', 'activo')),
+      collection(db, COLLECTION),
       (snapshot) => {
         const list = snapshot.docs
           .map((d) => {
             const data = d.data();
+            if (data.status === 'inactivo') return null;
             const birth = parseBirthDate(data.birthDate);
-            const m = Number.isFinite(data.birthMonth) ? data.birthMonth : birth ? birth.month : null;
-            const day = Number.isFinite(data.birthDay) ? data.birthDay : birth ? birth.day : null;
-            if (!m || !day) return null;
+            const rawM = data.birthMonth ?? (birth ? birth.month : null);
+            const rawD = data.birthDay ?? (birth ? birth.day : null);
+            const m = Number(rawM);
+            const day = Number(rawD);
+            if (!Number.isFinite(m) || !Number.isFinite(day) || m < 1 || m > 12 || day < 1 || day > 31) return null;
             return {
               id: d.id,
-              fullName: data.fullName || 'Miembro',
+              fullName: data.fullName || 'Miembro Love',
               birthDate: data.birthDate || '',
               birthMonth: m,
               birthDay: day

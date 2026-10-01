@@ -240,31 +240,61 @@ function initCalendar() {
   // Eventos administrables y cumpleaños cargados desde Firestore (js/public-init.js)
   let externalEvents = [];
   let externalBirthdays = [];
+  let externalServiceHours = [];
 
   const DAY_MAP = {
     domingo: 0, domingos: 0,
     lunes: 1,
     martes: 2,
-    miercoles: 3, miércoles: 3,
+    miercoles: 3, miercole: 3,
     jueves: 4,
     viernes: 5,
-    sabado: 6, sábado: 6, sabados: 6, sábados: 6
+    sabado: 6, sabados: 6
   };
 
-  function getRecurringDay(event) {
-    if (!event) return null;
-    if (typeof event.recurringDay === 'number') return event.recurringDay;
-    const txt = `${event.title || ''} ${event.description || ''} ${event.location || ''}`.toLowerCase();
-    const match = txt.match(/\b(domingos?|lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bados?)\b/i);
+  function normalizeTextForDay(str) {
+    if (!str) return '';
+    return String(str)
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+  }
+
+  function getRecurringDayFromItem(item) {
+    if (!item) return null;
+    if (typeof item.recurringDay === 'number') return item.recurringDay;
+    const txt = normalizeTextForDay(
+      `${item.title || ''} ${item.description || ''} ${item.location || ''} ${item.day || ''} ${item.label || ''} ${item.time || ''}`
+    );
+    const match = txt.match(/\b(domingos?|lunes|martes|miercoles?|jueves|viernes|sabados?)\b/i);
     if (match) {
-      const clean = match[1].toLowerCase().replace('é', 'e').replace('á', 'a');
+      const clean = match[1].toLowerCase();
       if (DAY_MAP[clean] !== undefined) return DAY_MAP[clean];
     }
-    if (event.isRecurring || event.recurring) {
-      const s = parseSafeDate(event.dateStart);
+    if (item.isRecurring || item.recurring) {
+      const s = parseSafeDate(item.dateStart);
       if (s) return s.getDay();
     }
     return null;
+  }
+
+  function getServicesListFromDOM() {
+    const cards = document.querySelectorAll('#services-list .service-card');
+    const result = [];
+    cards.forEach((card) => {
+      const timeEl = card.querySelector('.service-time');
+      const h4El = card.querySelector('h4');
+      const pEl = card.querySelector('p');
+      if (timeEl || h4El) {
+        result.push({
+          title: h4El?.textContent?.trim() || 'Servicio',
+          description: pEl?.textContent?.trim() || '',
+          day: timeEl?.textContent?.trim() || '',
+          time: timeEl?.textContent?.trim() || ''
+        });
+      }
+    });
+    return result;
   }
 
   function externalEventFor(dateObj) {
@@ -287,19 +317,39 @@ function initCalendar() {
     });
     if (exact) return exact;
 
-    // 2) Coincidencia recurrente (ej. "martes - 6:30 pm", "todos los martes", etc.)
-    const recurring = externalEvents.find((event) => {
-      const recDay = getRecurringDay(event);
+    // 2) Coincidencia recurrente en eventos administrados de Firestore
+    const recurringEvent = externalEvents.find((event) => {
+      const recDay = getRecurringDayFromItem(event);
       return recDay !== null && recDay === dayOfWeek;
     });
-    return recurring || null;
+    if (recurringEvent) return recurringEvent;
+
+    // 3) Coincidencia recurrente en horarios de reunión de la tarjeta izquierda
+    const allServiceCards = [
+      ...externalServiceHours,
+      ...getServicesListFromDOM()
+    ];
+    const recurringService = allServiceCards.find((srv) => {
+      const recDay = getRecurringDayFromItem(srv);
+      return recDay !== null && recDay === dayOfWeek;
+    });
+    if (recurringService) {
+      return {
+        title: recurringService.label || recurringService.title || 'Servicio de Comunidad Love',
+        description: recurringService.description || `Reunión de ${recurringService.day || ''} ${recurringService.time ? 'a las ' + recurringService.time : ''}`,
+        location: recurringService.location || 'Templo Central Comunidad Love, Cartagena',
+        isServiceHour: true
+      };
+    }
+
+    return null;
   }
 
   function checkTodayCelebrations(birthdays) {
     const now = new Date();
     const currentMonth1 = now.getMonth() + 1;
     const currentDay = now.getDate();
-    const celebrants = (birthdays || []).filter(b => b.birthMonth === currentMonth1 && b.birthDay === currentDay);
+    const celebrants = (birthdays || []).filter(b => Number(b.birthMonth) === currentMonth1 && Number(b.birthDay) === currentDay);
 
     const bannerContainer = document.getElementById('birthday-celebration-container');
     if (!bannerContainer) return;
@@ -400,7 +450,7 @@ function initCalendar() {
 
       // 3) Cumpleaños de miembros registrados
       const birthdaysToday = externalBirthdays.filter((b) => {
-        return b.birthMonth === (month + 1) && b.birthDay === day;
+        return Number(b.birthMonth) === (month + 1) && Number(b.birthDay) === day;
       });
 
       if (birthdaysToday.length > 0) {
@@ -475,6 +525,13 @@ function initCalendar() {
     },
     getEvents() {
       return externalEvents;
+    },
+    setServiceHours(list) {
+      externalServiceHours = Array.isArray(list) ? list : [];
+      renderCalendar(currentMonth, currentYear);
+    },
+    getServiceHours() {
+      return externalServiceHours;
     },
     setBirthdays(list) {
       externalBirthdays = Array.isArray(list) ? list : [];
