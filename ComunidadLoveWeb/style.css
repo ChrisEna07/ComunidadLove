@@ -2830,23 +2830,30 @@ section:not(.hero).reveal-visible {
   color: var(--secondary);
   margin-bottom: 20px;
 }
-.upcoming-events {
+/* Contenedor general del grid de eventos */
+.events-grid,
+.upcoming-grid,
+.upcoming-events,
+#upcoming-events {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 18px;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)) !important;
+  gap: 1.5rem;
+  width: 100%;
+  box-sizing: border-box;
 }
+
+/* Tarjeta de evento individual */
 .event-card,
 .upcoming-card {
   position: relative;
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  gap: 1rem;
+  display: flex !important;
+  flex-direction: column;
+  min-width: 0;
   width: 100%;
   box-sizing: border-box;
   background: var(--light);
   border-radius: var(--border-radius-md);
-  padding: 18px;
+  padding: 0;
   box-shadow: var(--shadow-sm);
   border: 1px solid rgba(0, 0, 0, 0.05);
   overflow: hidden;
@@ -2859,6 +2866,8 @@ section:not(.hero).reveal-visible {
 }
 .event-date-badge,
 .upcoming-date {
+  position: relative;
+  z-index: 2;
   flex-shrink: 0;
   width: 66px;
   min-width: 66px;
@@ -2873,6 +2882,7 @@ section:not(.hero).reveal-visible {
   text-align: center;
   padding: 6px 4px;
   box-sizing: border-box;
+  margin: 1.25rem 0 0 1.25rem;
 }
 .upcoming-month {
   font-size: 0.65rem;
@@ -2887,14 +2897,19 @@ section:not(.hero).reveal-visible {
   font-weight: 800;
   line-height: 1;
 }
+
+/* Capa de contenido por encima del fondo */
 .event-card-content,
 .upcoming-body {
-  flex: 1 1 auto;
-  min-width: 0; /* Previene colapso en flexbox */
-  display: flex;
+  position: relative;
+  z-index: 2;
+  display: flex !important;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.5rem;
+  min-width: 0;
   width: 100%;
+  padding: 0.75rem 1.25rem 1.25rem 1.25rem;
+  box-sizing: border-box;
 }
 .upcoming-tags {
   display: flex;
@@ -2920,15 +2935,18 @@ section:not(.hero).reveal-visible {
   background: rgba(16, 172, 132, 0.12);
   color: var(--news-primary);
 }
+
+/* Título de evento */
 .event-title,
 .upcoming-body h4 {
-  display: block;
-  width: 100%;
-  white-space: normal;
-  word-break: keep-all;
-  overflow-wrap: break-word;
-  font-size: 1.15rem;
-  line-height: 1.3;
+  display: block !important;
+  width: 100% !important;
+  white-space: normal !important;
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1.35;
   color: var(--secondary);
   margin: 0;
 }
@@ -3175,14 +3193,24 @@ section:not(.hero).reveal-visible {
     flex-direction: column;
     gap: 8px;
   }
-  .upcoming-card {
-    padding: 16px;
+  .upcoming-card,
+  .event-card {
+    padding: 0;
   }
   .cl-toast-host {
     left: 20px;
     right: 20px;
     bottom: 20px;
     max-width: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .events-grid,
+  .upcoming-grid,
+  .upcoming-events,
+  #upcoming-events {
+    grid-template-columns: 1fr !important;
   }
 }
 

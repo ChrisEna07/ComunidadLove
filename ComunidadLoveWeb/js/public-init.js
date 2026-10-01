@@ -354,7 +354,11 @@ function renderMarket(products) {
             }
             <div class="product-actions" style="display: flex; gap: 8px;">
               <button class="btn btn-outline btn-view-details" style="flex: 1;" type="button">Detalles <i class="fas fa-eye"></i></button>
-              <button class="btn btn-primary btn-order-product" style="flex: 1;" type="button" data-product-id="${escapeHTML(product.id)}" data-product-name="${escapeHTML(product.name)}" data-product-price="${product.price}">¡Lo quiero! <i class="fas fa-bag-shopping"></i></button>
+              ${
+                soldOut
+                  ? '<button class="btn btn-secondary" style="flex: 1; opacity: 0.6; cursor: not-allowed;" type="button" disabled title="Producto agotado">Agotado <i class="fas fa-ban"></i></button>'
+                  : `<button class="btn btn-primary btn-order-product" style="flex: 1;" type="button" data-product-id="${escapeHTML(product.id)}" data-product-name="${escapeHTML(product.name)}" data-product-price="${product.price}">¡Lo quiero! <i class="fas fa-bag-shopping"></i></button>`
+              }
             </div>
           </div>
         </div>
@@ -499,6 +503,10 @@ function initPublicMarketOrders() {
     }
     if (!phone || phone.replace(/\D/g, '').length < 7) {
       showOrderError('Por favor ingresa un número de teléfono o WhatsApp válido.');
+      return;
+    }
+    if (contienePalabrasObscenas(name) || contienePalabrasObscenas(notes)) {
+      showOrderError('Por favor exprésate con respeto. Se detectó lenguaje inapropiado.');
       return;
     }
 

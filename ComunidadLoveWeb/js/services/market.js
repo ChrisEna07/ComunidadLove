@@ -12,6 +12,8 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
+  increment,
   onSnapshot,
   orderBy,
   query,
@@ -248,6 +250,25 @@ export async function createMarketOrder(orderData) {
 
   try {
     const ref = await addDoc(collection(db, 'market_orders'), payload);
+
+    // Si es un producto del catálogo de Firestore, descontar 1 unidad del stock
+    if (payload.productId && !payload.productId.startsWith('seed-')) {
+      try {
+        const prodRef = doc(db, COLLECTION, payload.productId);
+        const prodSnap = await getDoc(prodRef);
+        if (prodSnap.exists()) {
+          const currentStock = Number(prodSnap.data().stock);
+          if (Number.isFinite(currentStock) && currentStock > 0) {
+            await updateDoc(prodRef, {
+              stock: increment(-1)
+            });
+          }
+        }
+      } catch (stockErr) {
+        console.warn('[CL] No se pudo descontar el stock del producto:', stockErr);
+      }
+    }
+
     return ref.id;
   } catch (error) {
     console.error('[CL] Error creando pedido:', error);

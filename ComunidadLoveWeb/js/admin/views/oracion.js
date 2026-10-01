@@ -24,6 +24,7 @@ import {
 import { logAudit } from '../../services/audit.js';
 import { escapeHTML, qs, showToast, confirmDialog } from '../../lib/dom.js';
 import { smartDate, formatDateTime } from '../../lib/dates.js';
+import { contienePalabrasObscenas } from '../../lib/text.js';
 import { subscribe, getState } from '../store.js';
 import {
   pageHeader,
@@ -382,6 +383,7 @@ function renderCard(prayer) {
           ${tag(prayer.type === 'inquietud' ? 'Inquietud' : 'Petición', 'neutral')}
           ${tag(statusLabel(prayer.status), statusTone(prayer.status))}
           ${!prayer.isPublic ? tag('Privada', 'warning') : ''}
+          ${(contienePalabrasObscenas(prayer.text) || contienePalabrasObscenas(prayer.name)) ? tag('Alerta Moderación', 'danger') : ''}
         </div>
       </header>
 
