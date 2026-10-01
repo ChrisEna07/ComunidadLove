@@ -41,5 +41,32 @@
   <div class="clg-toast-host" id="clg-toast-host" aria-live="polite"></div>
 
   <script type="module" src="../js/admin/main.js"></script>
+  <script>
+    // Salvaguarda: si tras 4 segundos la aplicación no ha podido montar (ej. error 404 de importación)
+    setTimeout(function() {
+      var root = document.getElementById('clg-app');
+      var p = root ? root.querySelector('.clg-boot p') : null;
+      if (p && p.textContent.includes('Cargando el sistema')) {
+        root.innerHTML = `
+          <div class="clg-boot">
+            <div class="clg-boot-card" style="max-width: 500px; text-align: left; padding: 30px;">
+              <div style="text-align: center; margin-bottom: 16px;">
+                <i class="fas fa-triangle-exclamation" style="color: #ff6b4a; font-size: 2.5rem; margin-bottom: 12px; display: inline-block;"></i>
+                <h1 style="font-size: 1.4rem; color: #1e293b;">No se pudo conectar a Firebase</h1>
+                <p style="font-size: 0.88rem; color: #64748b; margin-top: 6px;">El panel no pudo cargar las credenciales del servidor.</p>
+              </div>
+              <div style="background: rgba(255, 107, 74, 0.08); border-radius: 10px; padding: 14px; font-size: 0.82rem; color: #334155; line-height: 1.5; margin-bottom: 20px;">
+                En Vercel, el archivo <code>js/firebase-config.js</code> no está subido porque está protegido en <code>.gitignore</code>.
+              </div>
+              <div style="display: flex; gap: 10px; justify-content: space-between;">
+                <a href="../index.html" class="clg-btn clg-btn-ghost" style="text-decoration:none;"><i class="fas fa-arrow-left"></i><span>Sitio público</span></a>
+                <button type="button" class="clg-btn clg-btn-primary" onclick="location.reload()"><i class="fas fa-rotate"></i><span>Reintentar</span></button>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    }, 4000);
+  </script>
 </body>
 </html>

@@ -61,13 +61,84 @@ setNotFound((container) => {
    PANTALLAS GENERALES
    -------------------------------------------------------------------------- */
 function renderBoot(message, { fatal = false } = {}) {
+  if (fatal) {
+    root.innerHTML = `
+      <div class="clg-boot">
+        <div class="clg-boot-card" style="max-width: 520px; text-align: left; padding: 32px 28px;">
+          <div style="text-align: center; margin-bottom: 20px;">
+            <div style="width: 56px; height: 56px; border-radius: 16px; background: rgba(255, 107, 74, 0.12); color: #ff6b4a; display: inline-flex; align-items: center; justify-content: center; font-size: 1.6rem;">
+              <i class="fas fa-triangle-exclamation"></i>
+            </div>
+            <h1 style="font-size: 1.4rem; margin-top: 14px; color: var(--clg-secondary);">Configuración de Firebase no encontrada</h1>
+            <p style="font-size: 0.88rem; color: var(--clg-muted); margin-top: 6px;">
+              ${escapeHTML(message)}
+            </p>
+          </div>
+
+          <div class="clg-boot-hint" style="font-size: 0.84rem; line-height: 1.5; margin-bottom: 20px;">
+            <p style="margin: 0 0 6px 0;"><strong>¿Por qué ocurre esto?</strong></p>
+            <p style="margin: 0;">Por seguridad, el archivo <code>js/firebase-config.js</code> está protegido en <code>.gitignore</code> para evitar exponer credenciales en repositorios públicos. Al desplegar en Vercel, este archivo no se sube automáticamente.</p>
+          </div>
+
+          <div style="background: var(--clg-bg); border: 1px solid var(--clg-line); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+            <label style="display: block; font-size: 0.82rem; font-weight: 600; color: var(--clg-secondary); margin-bottom: 6px;">
+              Conectar ingresando la configuración para este navegador:
+            </label>
+            <textarea id="clg-manual-config" class="clg-input" rows="6" style="font-family: monospace; font-size: 0.78rem; width: 100%; box-sizing: border-box; resize: vertical;">{
+  "apiKey": "AIzaSyDeGyzjhjTB1IHfNZ9VYhXGh6fofOzo9mk",
+  "authDomain": "comunidadlove-cbe75.firebaseapp.com",
+  "projectId": "comunidadlove-cbe75",
+  "messagingSenderId": "311051033862",
+  "appId": "1:311051033862:web:17127d96c610a45b0f5287"
+}</textarea>
+            <div style="display: flex; gap: 8px; margin-top: 10px; justify-content: flex-end;">
+              <button type="button" class="clg-btn clg-btn-primary" id="clg-save-config-btn" style="font-size: 0.82rem; padding: 8px 14px;">
+                <i class="fas fa-plug"></i><span>Guardar y Conectar</span>
+              </button>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 10px; justify-content: space-between; align-items: center; border-top: 1px solid var(--clg-line); padding-top: 16px;">
+            <a href="../index.html" class="clg-btn clg-btn-ghost" style="text-decoration: none; font-size: 0.84rem;">
+              <i class="fas fa-arrow-left"></i><span>Volver al sitio público</span>
+            </a>
+            <button type="button" class="clg-btn clg-btn-ghost" onclick="location.reload()" style="font-size: 0.84rem;">
+              <i class="fas fa-rotate"></i><span>Reintentar</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('clg-save-config-btn')?.addEventListener('click', () => {
+      const text = document.getElementById('clg-manual-config')?.value?.trim();
+      if (!text) {
+        showToast('Por favor pega el objeto JSON con la configuración de Firebase.', 'danger');
+        return;
+      }
+      try {
+        const parsed = JSON.parse(text);
+        if (!parsed.apiKey || !parsed.projectId) {
+          showToast('El JSON debe contener al menos apiKey y projectId.', 'danger');
+          return;
+        }
+        localStorage.setItem('cl_firebase_config', JSON.stringify(parsed));
+        showToast('Configuración guardada. Conectando...', 'success');
+        setTimeout(() => window.location.reload(), 600);
+      } catch (e) {
+        showToast('El texto no es un JSON válido. Revisa llaves y comillas.', 'danger');
+      }
+    });
+
+    return;
+  }
+
   root.innerHTML = `
     <div class="clg-boot">
       <div class="clg-boot-card">
-        <i class="fas ${fatal ? 'fa-plug-circle-xmark' : 'fa-circle-notch fa-spin'}"></i>
+        <i class="fas fa-circle-notch fa-spin"></i>
         <h1>CLGestión</h1>
         <p>${escapeHTML(message)}</p>
-        ${fatal ? '<p class="clg-boot-hint">Revisa el archivo <code>js/firebase-config.js</code> y vuelve a cargar la página.</p>' : ''}
       </div>
     </div>
   `;

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -42,7 +42,7 @@
        ========================================================================== -->
   <header>
     <div class="container nav-container">
-      <a href="#" class="logo">
+      <a href="#" class="logo brand">
         <img src="./Assets/logo-color.png" alt="Comunidad Love Logo">
         <div class="logo-text">Comunidad <span>Love</span></div>
       </a>
@@ -58,11 +58,18 @@
         <a href="#market" class="nav-link">Market</a>
         <a href="#donaciones" class="nav-link">Donar</a>
         <a href="#reflexion" class="nav-link nav-btn">Oración</a>
-        <a href="./admin/" class="nav-link nav-link-admin"><i class="fas fa-lock"></i> Acceso Administrativo</a>
+        <!-- Acceso al panel visible en el menú desplegable móvil -->
+        <a href="./admin/" class="nav-link nav-link-admin-drawer"><i class="fas fa-lock"></i> Acceso Administrativo</a>
       </nav>
       
-      <div class="menu-toggle">
-        <i class="fas fa-bars"></i>
+      <div class="nav-actions">
+        <a href="./admin/" class="nav-link-admin" title="Acceso Administrativo" aria-label="Acceso Administrativo">
+          <i class="fas fa-lock"></i>
+          <span class="nav-admin-text">Acceso Administrativo</span>
+        </a>
+        <div class="menu-toggle" aria-label="Abrir menú" role="button" tabindex="0">
+          <i class="fas fa-bars"></i>
+        </div>
       </div>
     </div>
   </header>

@@ -32,14 +32,25 @@ function initNavbar() {
     }
   });
 
+  if (!menuToggle || !navMenu) return;
+
+  const closeMobileMenu = () => {
+    if (navMenu.classList.contains('active')) {
+      navMenu.classList.remove('active');
+      const icon = menuToggle.querySelector('i');
+      if (icon) icon.className = 'fas fa-bars';
+    }
+  };
+
   // Toggle mobile menu
-  menuToggle.addEventListener('click', () => {
+  menuToggle.addEventListener('click', (e) => {
+    e.stopPropagation();
     navMenu.classList.toggle('active');
     const icon = menuToggle.querySelector('i');
     if (navMenu.classList.contains('active')) {
-      icon.className = 'fas fa-times';
+      if (icon) icon.className = 'fas fa-times';
     } else {
-      icon.className = 'fas fa-bars';
+      if (icon) icon.className = 'fas fa-bars';
     }
   });
 
@@ -48,11 +59,29 @@ function initNavbar() {
     link.addEventListener('click', () => {
       navLinks.forEach(l => l.classList.remove('active'));
       link.classList.add('active');
-
-      navMenu.classList.remove('active');
-      const icon = menuToggle.querySelector('i');
-      icon.className = 'fas fa-bars';
+      closeMobileMenu();
     });
+  });
+
+  // Close when clicking outside header
+  document.addEventListener('click', (e) => {
+    if (navMenu.classList.contains('active') && !header.contains(e.target)) {
+      closeMobileMenu();
+    }
+  });
+
+  // Close on Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeMobileMenu();
+    }
+  });
+
+  // Reset menu on resize to desktop
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 1024) {
+      closeMobileMenu();
+    }
   });
 }
 
