@@ -13,6 +13,7 @@ import { can, currentProfile } from '../../lib/auth.js';
 import { showToast, qs, qsa, createEl } from '../../lib/dom.js';
 import { pageHeader, field, checkboxField, segmentedControl, readForm, markInvalid, clearInvalid, setLoading } from '../ui.js';
 import { bindImageInputs, imageInput, prepareImageValue } from '../image-input.js';
+import { bindLiveFormValidation } from '../../lib/validation.js';
 
 const FAMILY_TYPE_LABELS = {
   conyuge: 'Cónyuge',
@@ -109,6 +110,7 @@ export function renderRegistro(container) {
   let counter = 1;
 
   bindImageInputs(form);
+  bindLiveFormValidation(form);
 
   /* ---- Interruptor solo / familia ---- */
   qsa('.clg-segment', form).forEach((segment) => {
@@ -185,6 +187,7 @@ export function renderRegistro(container) {
     `;
     personBlocks.appendChild(block);
     bindImageInputs(block);
+    bindLiveFormValidation(block);
     renumber();
     block.querySelector('[name$="-fullName"]')?.focus();
   }
@@ -283,12 +286,54 @@ export function renderRegistro(container) {
       const person = Object.fromEntries(
         Object.entries(raw).map(([key, value]) => [key.replace(/^[^-]+-/, ''), value])
       );
-      if (!person.fullName || person.fullName.length < 3) {
-        markInvalid(form, 'Completa el nombre completo de todas las personas del núcleo.');
+      const cleanName = (person.fullName || '').trim().replace(/\s+/g, ' ');
+      if (!cleanName || cleanName.length < 3) {
+        markInvalid(form, 'Completa el nombre completo de todas las personas del núcleo (mínimo 3 letras).');
         block.scrollIntoView({ behavior: 'smooth', block: 'center' });
         block.querySelector('[name$="-fullName"]')?.focus();
         return;
       }
+      if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/.test(cleanName)) {
+        markInvalid(form, `El nombre "${cleanName}" solo puede contener letras y espacios.`);
+        block.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        block.querySelector('[name$="-fullName"]')?.focus();
+        return;
+      }
+      person.fullName = cleanName;
+
+      if (person.phone) {
+        const cleanPhone = person.phone.replace(/\D/g, '');
+        if (cleanPhone.length !== 10) {
+          markInvalid(form, `El teléfono de "${cleanName}" debe tener estrictamente 10 dígitos numéricos.`);
+          block.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          block.querySelector('[name$="-phone"]')?.focus();
+          return;
+        }
+        person.phone = cleanPhone;
+      }
+
+      if (person.documentId) {
+        const cleanDoc = person.documentId.replace(/\D/g, '');
+        if (cleanDoc.length < 6 || cleanDoc.length > 15) {
+          markInvalid(form, `El documento de "${cleanName}" debe tener entre 6 y 15 dígitos numéricos.`);
+          block.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          block.querySelector('[name$="-documentId"]')?.focus();
+          return;
+        }
+        person.documentId = cleanDoc;
+      }
+
+      if (person.email) {
+        const cleanEmail = person.email.trim().toLowerCase();
+        if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(cleanEmail)) {
+          markInvalid(form, `El correo de "${cleanName}" no tiene un formato válido.`);
+          block.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          block.querySelector('[name$="-email"]')?.focus();
+          return;
+        }
+        person.email = cleanEmail;
+      }
+
       try {
         person.photoUrl = prepareImageValue(person.photoUrl);
       } catch (error) {

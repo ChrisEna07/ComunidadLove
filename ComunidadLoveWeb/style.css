@@ -2835,9 +2835,11 @@ section:not(.hero).reveal-visible {
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 18px;
 }
-.upcoming-card {
+.upcoming-card,
+.event-card {
   position: relative;
   display: flex;
+  align-items: flex-start;
   gap: 16px;
   background: var(--light);
   border-radius: var(--border-radius-md);
@@ -2847,26 +2849,34 @@ section:not(.hero).reveal-visible {
   overflow: hidden;
   transition: var(--transition-smooth);
 }
-.upcoming-card:hover {
+.upcoming-card:hover,
+.event-card:hover {
   transform: translateY(-3px);
   box-shadow: var(--shadow-lg);
 }
-.upcoming-date {
+.upcoming-date,
+.event-date-badge {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-width: 62px;
-  height: 62px;
+  min-width: 66px;
+  width: 66px;
+  height: 66px;
   border-radius: 14px;
   background: var(--primary);
   color: var(--light);
   flex-shrink: 0;
+  text-align: center;
+  padding: 6px 4px;
+  box-sizing: border-box;
 }
 .upcoming-month {
-  font-size: 0.6rem;
+  font-size: 0.65rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
+  line-height: 1.1;
+  white-space: nowrap;
 }
 .upcoming-day {
   font-family: var(--font-heading);
@@ -2874,7 +2884,11 @@ section:not(.hero).reveal-visible {
   font-weight: 800;
   line-height: 1;
 }
-.upcoming-body {
+.upcoming-body,
+.event-card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
   flex: 1;
   min-width: 0;
 }
@@ -2882,7 +2896,7 @@ section:not(.hero).reveal-visible {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 6px;
+  margin-bottom: 2px;
 }
 .upcoming-category,
 .upcoming-countdown {
@@ -2892,6 +2906,7 @@ section:not(.hero).reveal-visible {
   letter-spacing: 0.04em;
   padding: 3px 9px;
   border-radius: 999px;
+  white-space: nowrap;
 }
 .upcoming-category {
   background: var(--primary-light);
@@ -2901,12 +2916,17 @@ section:not(.hero).reveal-visible {
   background: rgba(16, 172, 132, 0.12);
   color: var(--news-primary);
 }
-.upcoming-body h4 {
-  font-size: 1.02rem;
+.upcoming-body h4,
+.event-title {
+  word-break: normal;
+  overflow-wrap: break-word;
+  font-size: 1.15rem;
+  line-height: 1.3;
   color: var(--secondary);
-  margin-bottom: 6px;
+  margin: 0;
 }
-.upcoming-body p {
+.upcoming-body p,
+.event-desc {
   font-size: 0.85rem;
   color: var(--text-muted);
   line-height: 1.55;
@@ -2914,18 +2934,30 @@ section:not(.hero).reveal-visible {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  margin: 0;
 }
-.upcoming-meta {
+.upcoming-meta,
+.event-meta {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
-  gap: 14px;
-  margin-top: 10px;
-  font-size: 0.78rem;
+  gap: 0.5rem 1rem;
+  white-space: nowrap;
+  font-size: 0.82rem;
   color: var(--text-muted);
+  margin-top: 2px;
 }
-.upcoming-meta i {
+.upcoming-meta span,
+.event-meta span,
+.event-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+.upcoming-meta i,
+.event-meta i {
   color: var(--primary);
-  margin-right: 4px;
 }
 .upcoming-banner {
   position: absolute;
@@ -2936,7 +2968,8 @@ section:not(.hero).reveal-visible {
   opacity: 0.16;
   z-index: 0;
 }
-.upcoming-card > * {
+.upcoming-card > *,
+.event-card > * {
   position: relative;
   z-index: 1;
 }
@@ -3380,3 +3413,26 @@ section:not(.hero).reveal-visible {
 
 /* Botón de detalles en tarjetas de producto (usa .btn.btn-primary ya) */
 .product-actions .btn-view-details { width: 100%; }
+
+/* ==========================================================================
+   FEEDBACK DE VALIDACIÓN EN TIEMPO REAL (LANDING PÚBLICA)
+   ========================================================================== */
+input.is-valid,
+textarea.is-valid {
+  border-color: #16a34a !important;
+  box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.15) !important;
+}
+
+input.is-invalid,
+textarea.is-invalid {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.15) !important;
+}
+
+.field-error-msg {
+  font-size: 0.75rem;
+  color: #dc2626;
+  font-weight: 500;
+  display: block;
+  margin-top: 4px;
+}

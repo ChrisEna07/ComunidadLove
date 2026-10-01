@@ -38,6 +38,7 @@ import {
 } from '../../lib/roles.js';
 import { escapeHTML, qs, showToast, confirmDialog } from '../../lib/dom.js';
 import { smartDate } from '../../lib/dates.js';
+import { bindLiveFormValidation } from '../../lib/validation.js';
 import { subscribe, getState } from '../store.js';
 import {
   pageHeader,
@@ -424,6 +425,9 @@ export function renderUsuarios(container) {
     overlay?.classList.add('is-open');
     qs('#clg-user-drawer', drawerHost)?.classList.add('is-open');
 
+    // Enlazar validación en tiempo real y máscaras de entrada
+    bindLiveFormValidation(form);
+
     // Al cambiar de rol se recalcula si las funciones delegadas aplican.
     const roleSelect = qs('#clg-role', form);
     const syncRoleState = () => {
@@ -449,17 +453,26 @@ export function renderUsuarios(container) {
       const selectedPermissions = form.querySelectorAll('input[name="permissions"]:checked');
       const permissions = Array.from(selectedPermissions).map((cb) => cb.value);
 
-      if (!data.displayName) {
-        markInvalid(form, 'Escribe el nombre completo del usuario.');
+      const cleanName = (data.displayName || '').trim().replace(/\s+/g, ' ');
+      if (!cleanName || cleanName.length < 3) {
+        markInvalid(form, 'Escribe el nombre completo del usuario (mínimo 3 letras).');
         return;
       }
-      if (!isEdit && !data.email) {
-        markInvalid(form, 'Ingresa el correo del usuario.');
+      if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/.test(cleanName)) {
+        markInvalid(form, 'El nombre solo puede contener letras y espacios.');
         return;
       }
-      if (!isEdit && !data.uid) {
-        markInvalid(form, 'Pega el UID de la cuenta de Authentication.');
-        return;
+
+      const cleanEmail = (data.email || '').trim().toLowerCase();
+      if (!isEdit) {
+        if (!cleanEmail || !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(cleanEmail)) {
+          markInvalid(form, 'Ingresa un correo electrónico válido (ej. usuario@dominio.com).');
+          return;
+        }
+        if (!data.password || data.password.length < 6) {
+          markInvalid(form, 'La contraseña provisional debe tener al menos 6 caracteres.');
+          return;
+        }
       }
 
       const role = isSuperAdminEdit ? 'superadmin' : (data.role || currentRole);

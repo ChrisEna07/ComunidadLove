@@ -51,12 +51,22 @@ let secondaryAppCounter = 0;
 
 /**
  * Crea una cuenta nativa en Firebase Authentication usando una instancia
- * secundaria de Firebase App para NO cerrar la sesión del admin conectado.
+ * secundaria de Firebase App ("authWorker") para NO cerrar la sesión del admin conectado.
  */
 export async function createAuthUserWithoutSignout(email, password, displayName) {
   if (!firebaseConfig) throw new Error('Firebase no está configurado.');
-  const appName = `SecondaryAuth_${Date.now()}_${++secondaryAppCounter}`;
-  const secondaryApp = initializeApp(firebaseConfig, appName);
+  const appName = 'authWorker';
+  let secondaryApp;
+  try {
+    secondaryApp = initializeApp(firebaseConfig, appName);
+  } catch {
+    try {
+      const { getApp } = await import('firebase/app');
+      const existing = getApp(appName);
+      if (existing) await deleteApp(existing);
+    } catch {}
+    secondaryApp = initializeApp(firebaseConfig, appName);
+  }
   try {
     const secondaryAuth = getAuth(secondaryApp);
     const cred = await createUserWithEmailAndPassword(secondaryAuth, email, password);
@@ -70,7 +80,7 @@ export async function createAuthUserWithoutSignout(email, password, displayName)
     return uid;
   } finally {
     try {
-      await deleteApp(secondaryApp);
+      if (secondaryApp) await deleteApp(secondaryApp);
     } catch {}
   }
 }
@@ -200,7 +210,8 @@ export async function createUserAccount(
   const cleanEmail = String(email || '').trim().toLowerCase();
   const cleanName = String(fullName || '').trim();
 
-  if (!cleanName) throw new Error('Escribe el nombre del usuario.');
+  if (!cleanName || cleanName.length < 3) throw new Error('Escribe el nombre completo del usuario (mínimo 3 letras).');
+  if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/.test(cleanName)) throw new Error('El nombre solo puede contener letras y espacios.');
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) throw new Error('Ingresa un correo válido.');
   if (!ROLES.includes(role)) throw new Error('Selecciona un rol válido.');
   if (!canGrantRole(actorRole, role)) throw new Error('No puedes asignar ese rol.');

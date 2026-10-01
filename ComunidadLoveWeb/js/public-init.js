@@ -26,6 +26,7 @@ import {
 import { escapeHTML, qs, qsa, showToast, skeletonList } from './lib/dom.js';
 import { smartDate, formatTime, formatDate, daysUntil, MONTH_NAMES, parseDate } from './lib/dates.js';
 import { contienePalabrasObscenas } from './lib/text.js';
+import { bindLiveFormValidation } from './lib/validation.js';
 
 let settingsUnsub = null;
 let eventsUnsub = null;
@@ -255,7 +256,7 @@ function renderUpcomingEvents(events) {
       const countdownLabel = countdown === 0 ? '¡Hoy!' : countdown === 1 ? 'Mañana' : `En ${countdown} días`;
       const time = formatTime(start);
       const location = event.location
-        ? `<span><i class="fas fa-location-dot"></i> ${escapeHTML(event.location)}</span>`
+        ? `<span class="event-meta-item"><i class="fas fa-location-dot"></i> ${escapeHTML(event.location)}</span>`
         : '';
       // `bannerUrl` admite URL externa o data:image/webp;base64,… (sin Storage).
       // Un `onerror` tolerante oculta el banner roto en lugar de dejar el hueco.
@@ -263,20 +264,20 @@ function renderUpcomingEvents(events) {
         ? `<img class="upcoming-banner" src="${escapeHTML(event.bannerUrl)}" alt="${escapeHTML(event.title)}" loading="lazy" decoding="async" data-img-fallback="hide">`
         : '';
       return `
-        <article class="upcoming-card">
-          <div class="upcoming-date">
+        <article class="upcoming-card event-card">
+          <div class="upcoming-date event-date-badge">
             <span class="upcoming-month">${escapeHTML(month)}</span>
             <span class="upcoming-day">${start.getDate()}</span>
           </div>
-          <div class="upcoming-body">
+          <div class="upcoming-body event-card-content">
             <div class="upcoming-tags">
               <span class="upcoming-category">${escapeHTML(CATEGORY_LABELS[event.category] || 'General')}</span>
               <span class="upcoming-countdown">${escapeHTML(countdownLabel)}</span>
             </div>
-            <h4>${escapeHTML(event.title)}</h4>
-            ${event.description ? `<p>${escapeHTML(event.description)}</p>` : ''}
-            <div class="upcoming-meta">
-              <span><i class="far fa-clock"></i> ${escapeHTML(time || 'Por definir')}</span>
+            <h4 class="event-title">${escapeHTML(event.title)}</h4>
+            ${event.description ? `<p class="event-desc">${escapeHTML(event.description)}</p>` : ''}
+            <div class="upcoming-meta event-meta">
+              <span class="event-meta-item"><i class="far fa-clock"></i> ${escapeHTML(time || 'Por definir')}</span>
               ${location}
             </div>
           </div>
@@ -847,8 +848,9 @@ function bindPublicInteractions() {
    -------------------------------------------------------------------------- */
 export function initPublicSync() {
   // Se instala siempre: aunque no haya Firebase, la landing estática puede
-  // enlazar imágenes externas que se caigan.
+  // enlazar imágenes externas que se caigan y valida formularios.
   installImageFallback(document);
+  whenReady(() => bindLiveFormValidation(document));
 
   if (!firebaseReady) {
     warnOnce('general');

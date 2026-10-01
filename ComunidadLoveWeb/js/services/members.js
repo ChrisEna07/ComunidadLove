@@ -147,15 +147,30 @@ export function familyGroups(members) {
 export function buildMember(input, context = {}) {
   const fullName = (input.fullName || '').trim().replace(/\s+/g, ' ');
   if (fullName.length < 3) throw new Error('Ingresa el nombre completo de la persona.');
+  if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/.test(fullName)) {
+    throw new Error(`El nombre "${fullName}" solo puede contener letras y espacios.`);
+  }
+
+  const cleanPhone = (input.phone || '').toString().trim().replace(/\D/g, '');
+  if (cleanPhone && cleanPhone.length !== 10) {
+    throw new Error(`El teléfono de ${fullName} debe tener estrictamente 10 dígitos numéricos.`);
+  }
+
+  const cleanDoc = (input.documentId || '').toString().trim().replace(/\D/g, '');
+  if (cleanDoc && (cleanDoc.length < 6 || cleanDoc.length > 15)) {
+    throw new Error(`El documento de ${fullName} debe tener entre 6 y 15 dígitos numéricos.`);
+  }
 
   const birth = parseBirthDate(input.birthDate);
-  const email = (input.email || '').trim();
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error(`El correo de ${fullName} no es válido.`);
+  const email = (input.email || '').trim().toLowerCase();
+  if (email && !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)) {
+    throw new Error(`El correo de ${fullName} no es válido.`);
+  }
 
   return {
     fullName,
-    documentId: (input.documentId || '').trim(),
-    phone: (input.phone || '').trim(),
+    documentId: cleanDoc,
+    phone: cleanPhone,
     email,
     // URL externa o Base64 comprimida (ver lib/image.js). El servicio la
     // valida para que ningún cliente pueda escribir una imagen desmedida.

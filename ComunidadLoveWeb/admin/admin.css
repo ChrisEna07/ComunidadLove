@@ -795,6 +795,28 @@
 .clg-field select:disabled { opacity: 0.6; cursor: not-allowed; }
 .clg-hint { font-size: 0.74rem; color: var(--clg-muted); }
 
+/* Feedback de validación en tiempo real */
+.clg-field input.is-valid,
+input.is-valid {
+  border-color: #16a34a !important;
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15) !important;
+}
+
+.clg-field input.is-invalid,
+input.is-invalid {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15) !important;
+}
+
+.clg-field-error-msg,
+.field-error-msg {
+  font-size: 0.75rem;
+  color: #dc2626;
+  font-weight: 500;
+  display: block;
+  margin-top: 4px;
+}
+
 .clg-grid-2,
 .clg-grid-3 {
   display: grid;

@@ -43,6 +43,7 @@ import {
 } from '../../lib/dates.js';
 import { subscribe, leaders } from '../store.js';
 import { bindImageInputs, imageInput, prepareImageValue } from '../image-input.js';
+import { bindLiveFormValidation } from '../../lib/validation.js';
 import { pageHeader, card, table, emptyState, tag, iconButton, field, drawer, markInvalid, clearInvalid, setLoading, readForm } from '../ui.js';
 import { memberAvatar } from './panel.js';
 
@@ -421,6 +422,7 @@ ${imageInput({
 
   bindDrawerClose(drawerHost);
   bindImageInputs(drawerHost);
+  bindLiveFormValidation(drawerHost);
 
   /* --- Bitácora --- */
   const listHost = qs('#clg-followup-list', drawerHost);
