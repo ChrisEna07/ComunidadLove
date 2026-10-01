@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -18,8 +18,24 @@
   
   <!-- Leaflet Map CSS CDN -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
+  <!-- Firebase SDK v10+ (modular vía import map, sin build step) -->
+  <script type="importmap">
+  {
+    "imports": {
+      "firebase/app": "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js",
+      "firebase/auth": "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js",
+      "firebase/firestore": "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"
+    }
+  }
+  </script>
 </head>
 <body>
+
+  <!-- ==========================================================================
+       AVISO INSTITUCIONAL (site_settings.general → bannerAlert)
+       ========================================================================== -->
+  <div id="cl-banner-alert" class="cl-banner" hidden></div>
 
   <!-- ==========================================================================
        HEADER & NAVIGATION
@@ -36,11 +52,13 @@
         <a href="#nosotros" class="nav-link">Nosotros</a>
         <a href="#pastores" class="nav-link">Pastores</a>
         <a href="#calendario" class="nav-link">Servicios</a>
+        <a href="#anuncios" class="nav-link">Avisos</a>
         <a href="#eventos" class="nav-link">Galería</a>
         <a href="#ministerios" class="nav-link">Ministerios</a>
         <a href="#market" class="nav-link">Market</a>
         <a href="#donaciones" class="nav-link">Donar</a>
         <a href="#reflexion" class="nav-link nav-btn">Oración</a>
+        <a href="./admin/" class="nav-link nav-link-admin"><i class="fas fa-lock"></i> Acceso Administrativo</a>
       </nav>
       
       <div class="menu-toggle">
@@ -202,6 +220,23 @@
   </section>
 
   <!-- ==========================================================================
+       SECTION: AVISOS / ANUNCIOS (announcements)
+       ========================================================================== -->
+  <section id="anuncios" class="section announcements-section">
+    <div class="container">
+      <div class="section-title reveal">Avisos de la Comunidad</div>
+      <div class="heart-divider reveal reveal-delay-1">
+        <img src="./Assets/Perfil-IG.jpg" alt="Corazón Comunidad Love">
+      </div>
+      <div class="section-subtitle reveal reveal-delay-2">Información importante, convocationes y novedades de nuestros ministerios.</div>
+
+      <div id="announcements-list" class="announcements-grid reveal reveal-delay-2" data-cl-skeleton="announcements">
+        <!-- Rendered by js/public-init.js -->
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================================
        SECTION: CALENDARIO DE SERVICIOS
        ========================================================================== -->
   <section id="calendario" class="section calendar-section">
@@ -213,7 +248,7 @@
       <div class="section-subtitle reveal reveal-delay-2">Descubre nuestros días de servicio y no te pierdas ningún evento especial de nuestra agenda mensual.</div>
       
       <div class="calendar-grid">
-        <div class="services-list reveal">
+        <div class="services-list reveal" id="services-list">
           <h3 style="margin-bottom: 24px; color: var(--secondary);">Nuestras Reuniones</h3>
           
           <div class="service-card">
@@ -266,6 +301,17 @@
             <h4 id="event-detail-title"><i class="far fa-calendar-check" style="color:var(--primary);"></i> Selecciona un día</h4>
             <p id="event-detail-desc">Haz clic en los días señalados con un punto para ver los horarios y descripciones de los servicios o actividades especiales.</p>
           </div>
+        </div>
+      </div>
+
+      <!-- Próximos Eventos (events · isActive == true) -->
+      <div class="upcoming-events-block reveal reveal-delay-2">
+        <h3 class="upcoming-block-title">
+          <i class="fas fa-calendar-day" style="color: var(--primary);"></i>
+          Próximos Eventos
+        </h3>
+        <div id="upcoming-events" class="upcoming-events">
+          <!-- Rendered by js/public-init.js -->
         </div>
       </div>
     </div>
@@ -397,10 +443,10 @@
         <p style="text-align: center; color: var(--text-muted); max-width: 600px; margin: 0 auto 30px auto;">¿Te perdiste nuestra última celebración de fin de semana? Mírala completa a continuación y edifica tu vida con la música y el mensaje.</p>
         
         <div class="video-wrapper">
-          <iframe src="https://www.youtube.com/embed/kItYRbhPrI0?si=NyhHZn0I3-HAKyvC" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+          <iframe id="streaming-frame" src="https://www.youtube.com/embed/kItYRbhPrI0?si=NyhHZn0I3-HAKyvC" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
         </div>
         <div style="text-align: center; margin-top: 25px;">
-          <a href="https://youtube.com/@comunidadcristianalove?si=SVu02G2wBtLYnAYw" target="_blank" class="btn btn-secondary"><i class="fab fa-youtube"></i> Ir a Nuestro Canal en Vivo</a>
+          <a href="https://youtube.com/@comunidadcristianalove?si=SVu02G2wBtLYnAYw" target="_blank" rel="noopener" class="btn btn-secondary" data-role="streaming-channel"><i class="fab fa-youtube"></i> Ir a Nuestro Canal en Vivo</a>
         </div>
       </div>
     </div>
@@ -538,7 +584,7 @@
       </div>
       <div class="section-subtitle reveal reveal-delay-2">Adquiere nuestros productos oficiales de merchandising y apoya los proyectos sociales de la Comunidad Love.</div>
       
-      <div class="market-grid reveal reveal-delay-2">
+      <div class="market-grid reveal reveal-delay-2" id="market-grid">
         <!-- Product 1 -->
         <div class="product-card" data-desc="Hoodie premium con capucha y bolsillo delantero. Material ultra suave y duradero, estampado en alta definición con el logo de la Comunidad Love. Disponible en todas las tallas.">
           <div class="product-image">
@@ -681,15 +727,15 @@
           <h3>Escríbenos</h3>
           <p>Tu petición será tratada con confidencialidad. Queremos apoyarte y darte ánimo.</p>
           
-          <form id="prayer-form">
+<form id="prayer-form">
             <div class="form-group">
               <label for="form-name" class="form-label">Tu Nombre (puedes usar pseudónimo)</label>
-              <input type="text" id="form-name" class="form-control" placeholder="Ej. Juan Pérez" required>
+              <input type="text" id="form-name" name="prayer-name" class="form-control" placeholder="Ej. Juan Pérez" maxlength="60" required>
             </div>
             
             <div class="form-group">
               <label for="form-type" class="form-label">Tipo de mensaje</label>
-              <select id="form-type" class="form-control">
+              <select id="form-type" name="prayer-type" class="form-control">
                 <option value="petición">Petición de Oración</option>
                 <option value="inquietud">Inquietud / Pregunta</option>
               </select>
@@ -697,7 +743,7 @@
             
             <div class="form-group">
               <label for="form-text" class="form-label">Escribe tu petición o mensaje</label>
-              <textarea id="form-text" class="form-control" rows="4" placeholder="Escribe aquí tu petición detallada de oración..." required></textarea>
+              <textarea id="form-text" name="prayer-text" class="form-control" rows="4" maxlength="1200" placeholder="Escribe aquí tu petición detallada de oración..." required></textarea>
             </div>
             
             <button type="submit" class="btn btn-primary" style="width:100%;">Enviar Mensaje <i class="fas fa-paper-plane"></i></button>
@@ -730,9 +776,9 @@
         <p>Una gran familia ministerial comprometida en levantar el nombre de Jesús y restaurar los hogares en Cartagena, Colombia.</p>
         
         <div class="social-links">
-          <a href="https://www.facebook.com/share/1996TDazq1/?mibextid=wwXIfr" target="_blank" class="social-link" aria-label="Facebook"><i class="fab fa-facebook-f"></i></a>
-          <a href="https://www.instagram.com/comunidadcristianalove?igsh=OXdsaDhtenoweDc=" target="_blank" class="social-link" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
-          <a href="https://youtube.com/@comunidadcristianalove?si=SVu02G2wBtLYnAYw" target="_blank" class="social-link" aria-label="YouTube"><i class="fab fa-youtube"></i></a>
+          <a href="https://www.facebook.com/share/1996TDazq1/?mibextid=wwXIfr" target="_blank" rel="noopener" class="social-link" data-social="facebook" aria-label="Facebook"><i class="fab fa-facebook-f"></i></a>
+          <a href="https://www.instagram.com/comunidadcristianalove?igsh=OXdsaDhtenoweDc=" target="_blank" rel="noopener" class="social-link" data-social="instagram" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
+          <a href="https://youtube.com/@comunidadcristianalove?si=SVu02G2wBtLYnAYw" target="_blank" rel="noopener" class="social-link" data-social="youtube" aria-label="YouTube"><i class="fab fa-youtube"></i></a>
         </div>
       </div>
       
@@ -742,10 +788,12 @@
           <a href="#">Inicio</a>
           <a href="#nosotros">Nosotros</a>
           <a href="#pastores">Pastores</a>
+          <a href="#anuncios">Avisos</a>
           <a href="#calendario">Calendario</a>
           <a href="#eventos">Galería</a>
           <a href="#market">Market</a>
           <a href="#reflexion">Oración</a>
+          <a href="./admin/" class="footer-link-admin"><i class="fas fa-lock"></i> Acceso Administrativo / CLGestión</a>
         </div>
       </div>
       
@@ -754,15 +802,15 @@
         <div class="footer-contact-list">
           <div class="footer-contact-item">
             <i class="fas fa-map-location-dot"></i>
-            <span>Avenida Pedro de Heredia, Sector Pie de la Popa, Cartagena, Colombia</span>
+            <span data-role="contact-address">Avenida Pedro de Heredia, Sector Pie de la Popa, Cartagena, Colombia</span>
           </div>
           <div class="footer-contact-item">
             <i class="fas fa-envelope"></i>
-            <span>contacto@comunidadlove.co</span>
+            <a href="mailto:contacto@comunidadlove.co" data-role="contact-email">contacto@comunidadlove.co</a>
           </div>
           <div class="footer-contact-item">
             <i class="fas fa-phone"></i>
-            <span>+57 300 123 4567</span>
+            <a href="https://wa.me/573001234567" target="_blank" rel="noopener" data-role="contact-phone">+57 300 123 4567</a>
           </div>
         </div>
       </div>
@@ -815,6 +863,9 @@
   
   <!-- Application JS Logic -->
   <script src="./app.js"></script>
+
+  <!-- Sincronización con Firestore (módulo ES, carga diferida y tolerante a fallos) -->
+  <script type="module" src="./js/public-init.js"></script>
 
   <!-- Script for Map Initialization -->
   <script>

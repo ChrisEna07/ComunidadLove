@@ -9,6 +9,10 @@ Desktop.ini
 $RECYCLE.BIN/
 .DS_Store
 
+# Python (servidor local)
+__pycache__/
+*.py[cod]
+
 # IDEs and text editors
 .vscode/
 .idea/
@@ -25,6 +29,22 @@ yarn-debug.log*
 yarn-error.log*
 package-lock.json
 yarn.lock
+
+# ==============================================================================
+# FIREBASE / CLOUDFIREBASE
+# La configuración real contiene credenciales y NUNCA debe subirse.
+# ==============================================================================
+ComunidadLoveWeb/js/firebase-config.js
+.firebase/
+firebase-debug.log*
+firestore-debug.log*
+storage-debug.log*
+ui-debug.log*
+emulator-debug.log*
+*.log
+# .firebaserc se versiona porque es útil en CI/CD (contiene el project ID,
+# que no es un secreto). Si tu flujo no lo necesita, descomenta la línea de abajo.
+# ComunidadLoveWeb/.firebaserc
 
 # ==============================================================================
 # ASSETS FILTERING (Keep only used/needed files)

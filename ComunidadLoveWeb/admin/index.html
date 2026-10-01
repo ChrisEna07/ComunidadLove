@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="description" content="CLGestión - Sistema integral de gestión de Comunidad Love">
+  <title>CLGestión | Comunidad Love</title>
+
+  <link rel="icon" type="image/png" href="../favicon.png">
+
+  <!-- Stylesheet exclusivo del panel. No toca la landing pública. -->
+  <link rel="stylesheet" href="./admin.css">
+
+  <!-- Iconos -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Firebase SDK v10+ modular (sin build step) -->
+  <script type="importmap">
+  {
+    "imports": {
+      "firebase/app": "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js",
+      "firebase/auth": "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js",
+      "firebase/firestore": "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"
+    }
+  }
+  </script>
+</head>
+<body class="clg-body">
+
+  <div class="clg-app" id="clg-app">
+    <div class="clg-boot">
+      <div class="clg-boot-card">
+        <i class="fas fa-circle-notch fa-spin"></i>
+        <h1>CLGestión</h1>
+        <p>Cargando el sistema…</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="clg-toast-host" id="clg-toast-host" aria-live="polite"></div>
+
+  <script type="module" src="../js/admin/main.js"></script>
+</body>
+</html>

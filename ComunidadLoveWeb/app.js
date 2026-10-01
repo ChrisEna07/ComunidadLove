@@ -8,7 +8,6 @@ document.addEventListener('DOMContentLoaded', () => {
   initScrollAnimations();
   initCalendar();
   initGallery();
-  initPrayerRequestSystem();
   initLottieAnimations();
   initDonationClipboard();
   initLoveMarket();
@@ -170,6 +169,15 @@ const MONTH_NAMES = [
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
 ];
 
+/** Formatea una fecha/hora Firestore como "7:00 PM" para el detalle del calendario. */
+function formatClock(value) {
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  const suffix = d.getHours() >= 12 ? 'PM' : 'AM';
+  const hour12 = d.getHours() % 12 === 0 ? 12 : d.getHours() % 12;
+  return `${hour12}:${String(d.getMinutes()).padStart(2, '0')} ${suffix}`;
+}
+
 function initCalendar() {
   const monthNameEl = document.getElementById('calendar-month-name');
   const daysContainer = document.getElementById('calendar-days');
@@ -183,6 +191,28 @@ function initCalendar() {
   const today = new Date();
   let currentMonth = today.getMonth();
   let currentYear = today.getFullYear();
+
+  // Eventos administrables cargados desde Firestore (js/public-init.js).
+  // Tienen prioridad sobre el calendario recurrente local.
+  let externalEvents = [];
+
+  function externalEventFor(dateObj) {
+    const y = dateObj.getFullYear();
+    const m = dateObj.getMonth();
+    const d = dateObj.getDate();
+
+    return externalEvents.find((event) => {
+      if (!event.dateStart) return false;
+      const s = new Date(event.dateStart);
+      if (s.getFullYear() === y && s.getMonth() === m && s.getDate() === d) return true;
+      if (event.dateEnd) {
+        const e = new Date(event.dateEnd);
+        return new Date(y, m, d) >= new Date(s.getFullYear(), s.getMonth(), s.getDate())
+          && new Date(y, m, d) <= new Date(e.getFullYear(), e.getMonth(), e.getDate());
+      }
+      return false;
+    }) || null;
+  }
 
   function renderCalendar(month, year) {
     daysContainer.innerHTML = '';
@@ -211,11 +241,24 @@ function initCalendar() {
       let eventTitle = "";
       let eventDesc = "";
 
-      // Deterministic Saturdays index logic:
-      // First Saturday = Love Woman
-      // Second Saturday = Jóvenes
-      // Last Saturday = Parejas & Jóvenes
-      if (dayOfWeek === 6) { // Saturday
+      // 1) Eventos publicados desde el panel de administración (Firestore)
+      const managed = externalEventFor(dateObj);
+
+      if (managed) {
+        hasEvent = true;
+        eventTitle = managed.title;
+        eventDesc = [
+          managed.description,
+          managed.location ? `📍 ${managed.location}` : '',
+          managed.dateStart ? `🕐 ${formatClock(managed.dateStart)}` : ''
+        ].filter(Boolean).join(' — ') || 'Consulta los detalles en el standing de la iglesia.';
+        dayEl.classList.add('has-event', 'is-managed');
+      }
+
+      // 2) Calendario recurrente local (respaldo cuando no hay evento gestionado)
+      if (managed) {
+        // Se omite la lógica determinista: el evento de Firestore manda.
+      } else if (dayOfWeek === 6) { // Saturday
         const isFirstSat = (day <= 7);
         const isSecondSat = (day > 7 && day <= 14);
         const isLastSat = (day + 7 > totalDays);
@@ -292,6 +335,18 @@ function initCalendar() {
     }
     renderCalendar(currentMonth, currentYear);
   });
+
+  // Puente público para que el módulo de sincronización con Firestore
+  // empuje los eventos administrados sin reescribir este calendario.
+  window.CL_Calendar = {
+    setEvents(list) {
+      externalEvents = Array.isArray(list) ? list : [];
+      renderCalendar(currentMonth, currentYear);
+    },
+    getEvents() {
+      return externalEvents;
+    }
+  };
 }
 
 /* ==========================================================================
@@ -366,319 +421,6 @@ function initGallery() {
    ========================================================================== */
 
 
-/* ==========================================================================
-   SISTEMA DE PETICIONES DE ORACIÓN & REFLEXIÓN (LOCAL STORAGE)
-   ========================================================================== */
-const DEFAULT_PRAYERS = [
-  {
-    id: 1,
-    name: "Milena Andrade",
-    type: "petición",
-    text: "Pido oración por el nuevo proyecto de evangelismo Love Buenas Nuevas, para que Dios abra puertas en los hogares de Cartagena.",
-    date: "Hace 1 hora",
-    prayersCount: 18,
-    prayedBy: [],
-    replies: [
-      {
-        id: 101,
-        name: "Pastor James",
-        text: "Amén Milena, nos unimos como familia pastoral a este clamor por la salvación de Cartagena.",
-        date: "Hace 45 minutos"
-      }
-    ]
-  },
-  {
-    id: 2,
-    name: "Aron Andrade R.",
-    type: "inquietud",
-    text: "Me gustaría ser voluntario en el grupo de alabanza Love Adora. ¿A quién me puedo dirigir para los ensayos?",
-    date: "Hace 4 horas",
-    prayersCount: 5,
-    prayedBy: [],
-    replies: [
-      {
-        id: 102,
-        name: "Líder Adora",
-        text: "¡Hola Aron! Claro que sí, puedes acercarte este sábado a las 4:00 PM al templo para los ensayos. ¡Bienvenido!",
-        date: "Hace 3 horas"
-      }
-    ]
-  },
-  {
-    id: 3,
-    name: "Zuleima de Andrade",
-    type: "petición",
-    text: "Clamamos por el servicio de Love Woman de este fin de semana. Que cada mujer que asista experimente restauración y libertad.",
-    date: "Ayer",
-    prayersCount: 32,
-    prayedBy: [],
-    replies: []
-  }
-];
-
-function initPrayerRequestSystem() {
-  const form = document.getElementById('prayer-form');
-  const prayersList = document.getElementById('prayers-list');
-  const prayersCountBadge = document.getElementById('prayers-count-badge');
-
-  if (!prayersList) return;
-
-  let prayers = JSON.parse(localStorage.getItem('cl_prayers'));
-  if (!prayers || prayers.length === 0) {
-    prayers = DEFAULT_PRAYERS;
-    localStorage.setItem('cl_prayers', JSON.stringify(prayers));
-  }
-
-  function renderPrayers() {
-    prayersList.innerHTML = '';
-    
-    if (prayersCountBadge) {
-      prayersCountBadge.textContent = `${prayers.length} Activas`;
-    }
-
-    if (prayers.length === 0) {
-      prayersList.innerHTML = `
-        <div class="prayers-empty">
-          <i class="fas fa-heart-broken"></i>
-          <p>No hay peticiones recientes. ¡Sé el primero en compartir tu petición!</p>
-        </div>
-      `;
-      return;
-    }
-
-    const sortedPrayers = [...prayers].sort((a, b) => b.id - a.id);
-
-    sortedPrayers.forEach(prayer => {
-      const item = document.createElement('div');
-      item.classList.add('prayer-item');
-      
-      const typeLabel = prayer.type === 'petición' ? 'Petición de Oración' : 'Inquietud / Pregunta';
-      
-      // Ensure replies array exists
-      const replies = prayer.replies || [];
-      
-      let repliesHTML = '';
-      if (replies.length > 0) {
-        replies.forEach(reply => {
-          repliesHTML += `
-            <div class="reply-item">
-              <div class="reply-meta">
-                <span class="reply-author">${escapeHTML(reply.name)}</span>
-                <span class="reply-date">${reply.date}</span>
-              </div>
-              <p class="reply-content">${escapeHTML(reply.text)}</p>
-              <button class="reply-to-reply-btn" data-id="${prayer.id}" data-author="${escapeHTML(reply.name)}">
-                <i class="fas fa-reply"></i> Responder
-              </button>
-            </div>
-          `;
-        });
-      } else {
-        repliesHTML = '<p class="no-replies-text">No hay respuestas aún. ¡Sé el primero en responder!</p>';
-      }
-
-      item.innerHTML = `
-        <div class="prayer-meta">
-          <span class="prayer-author">${escapeHTML(prayer.name)}</span>
-          <span class="prayer-type">${typeLabel}</span>
-        </div>
-        <p class="prayer-text">"${escapeHTML(prayer.text)}"</p>
-        <div class="prayer-footer">
-          <span class="prayer-date">${prayer.date}</span>
-          <button class="pray-action-btn" data-id="${prayer.id}">
-            <i class="fas fa-hands-praying"></i> <span>Unirme en oración (${prayer.prayersCount})</span>
-          </button>
-          <button class="reply-toggle-btn" data-id="${prayer.id}">
-            <i class="far fa-comments"></i> <span>Respuestas (${replies.length})</span>
-          </button>
-        </div>
-        
-        <div class="replies-section" id="replies-section-${prayer.id}" style="display: none;">
-          <div class="replies-list" id="replies-list-${prayer.id}">
-            ${repliesHTML}
-          </div>
-          <form class="reply-form" data-id="${prayer.id}">
-            <div class="form-row">
-              <input type="text" class="reply-name-input" placeholder="Tu nombre o alias" required>
-            </div>
-            <div class="form-row" style="margin-top: 6px;">
-              <textarea class="reply-text-input" placeholder="Escribe tu respuesta..." rows="2" required></textarea>
-            </div>
-            <button type="submit" class="btn btn-primary btn-sm" style="margin-top: 8px; align-self: flex-end;">Responder <i class="fas fa-paper-plane"></i></button>
-          </form>
-        </div>
-      `;
-
-      const actionBtn = item.querySelector('.pray-action-btn');
-      if (prayer.prayedBy && prayer.prayedBy.includes('user_local')) {
-        actionBtn.classList.add('prayed');
-        actionBtn.innerHTML = `<i class="fas fa-hands-praying"></i> <span>Orando (${prayer.prayersCount})</span>`;
-      }
-
-      prayersList.appendChild(item);
-    });
-  }
-
-  function togglePrayerCount(id) {
-    prayers = prayers.map(p => {
-      if (p.id === id) {
-        if (!p.prayedBy) p.prayedBy = [];
-        
-        if (p.prayedBy.includes('user_local')) {
-          p.prayedBy = p.prayedBy.filter(u => u !== 'user_local');
-          p.prayersCount = Math.max(0, p.prayersCount - 1);
-        } else {
-          p.prayedBy.push('user_local');
-          p.prayersCount++;
-        }
-      }
-      return p;
-    });
-
-    localStorage.setItem('cl_prayers', JSON.stringify(prayers));
-    renderPrayers();
-  }
-
-  // Click & Action Delegation
-  prayersList.addEventListener('click', (e) => {
-    // Toggle replies panel
-    const toggleBtn = e.target.closest('.reply-toggle-btn');
-    if (toggleBtn) {
-      const id = toggleBtn.getAttribute('data-id');
-      const panel = document.getElementById(`replies-section-${id}`);
-      if (panel) {
-        const isHidden = panel.style.display === 'none';
-        panel.style.display = isHidden ? 'block' : 'none';
-      }
-    }
-    
-    // Toggle prayer status
-    const prayBtn = e.target.closest('.pray-action-btn');
-    if (prayBtn) {
-      const id = parseInt(prayBtn.getAttribute('data-id'));
-      togglePrayerCount(id);
-    }
-    
-    // Reply to reply (tagging author)
-    const replyToBtn = e.target.closest('.reply-to-reply-btn');
-    if (replyToBtn) {
-      const id = replyToBtn.getAttribute('data-id');
-      const author = replyToBtn.getAttribute('data-author');
-      const textarea = document.querySelector(`#replies-section-${id} .reply-text-input`);
-      if (textarea) {
-        textarea.value = `@${author} ` + textarea.value;
-        textarea.focus();
-      }
-    }
-  });
-
-  // Reply Form Submit Delegation
-  prayersList.addEventListener('submit', (e) => {
-    const form = e.target.closest('.reply-form');
-    if (form) {
-      e.preventDefault();
-      const id = parseInt(form.getAttribute('data-id'));
-      const nameInput = form.querySelector('.reply-name-input');
-      const textInput = form.querySelector('.reply-text-input');
-      
-      const nameVal = nameInput.value.trim();
-      const textVal = textInput.value.trim();
-      
-      if (!nameVal || !textVal) {
-        alert("Por favor completa los campos.");
-        return;
-      }
-      
-      // Profanity Filter Check
-      if (contienePalabrasObscenas(nameVal) || contienePalabrasObscenas(textVal)) {
-        alert("¡Epa! Tu mensaje o nombre contiene vocabulario inapropiado. En Comunidad Love promovemos palabras de edificación y respeto.");
-        return;
-      }
-      
-      // Add reply
-      prayers = prayers.map(p => {
-        if (p.id === id) {
-          p.replies = p.replies || [];
-          p.replies.push({
-            id: Date.now(),
-            name: nameVal,
-            text: textVal,
-            date: "Hace un momento"
-          });
-        }
-        return p;
-      });
-      
-      localStorage.setItem('cl_prayers', JSON.stringify(prayers));
-      renderPrayers();
-      
-      // Keep replies panel open for this item
-      const panel = document.getElementById(`replies-section-${id}`);
-      if (panel) {
-        panel.style.display = 'block';
-      }
-    }
-  });
-
-  if (form) {
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
-
-      const nameInput = document.getElementById('form-name');
-      const typeSelect = document.getElementById('form-type');
-      const textInput = document.getElementById('form-text');
-
-      const nameVal = nameInput.value.trim();
-      const textVal = textInput.value.trim();
-
-      if (!nameVal || !textVal) {
-        alert("Por favor completa los campos requeridos.");
-        return;
-      }
-
-      // Profanity Filter Check
-      if (contienePalabrasObscenas(nameVal) || contienePalabrasObscenas(textVal)) {
-        alert("¡Epa! Tu mensaje o nombre contiene vocabulario inapropiado. En Comunidad Love promovemos palabras de edificación y respeto.");
-        return;
-      }
-
-      const newPrayer = {
-        id: Date.now(),
-        name: nameVal,
-        type: typeSelect.value,
-        text: textVal,
-        date: "Hace un momento",
-        prayersCount: 0,
-        prayedBy: [],
-        replies: []
-      };
-
-      prayers.push(newPrayer);
-      localStorage.setItem('cl_prayers', JSON.stringify(prayers));
-
-      form.reset();
-      renderPrayers();
-
-      const successMsg = document.createElement('div');
-      successMsg.style.cssText = `
-        background: #e3faf2;
-        color: #0ca678;
-        padding: 12px;
-        border-radius: var(--border-radius-sm);
-        font-size: 0.9rem;
-        margin-top: 15px;
-        text-align: center;
-        animation: fadeInUp 0.4s ease;
-      `;
-      successMsg.textContent = "Petición enviada con éxito. Estaremos orando contigo.";
-      form.appendChild(successMsg);
-      setTimeout(() => successMsg.remove(), 4000);
-    });
-  }
-
-  renderPrayers();
-}
-
 function escapeHTML(str) {
   return str.replace(/[&<>'"]/g, 
     tag => ({
@@ -745,57 +487,67 @@ function initDonationClipboard() {
 }
 
 /* ==========================================================================
-   LOVE MARKET - CAROUSEL & PREVIEW MODAL
+   LOVE MARKET - PREVIEW MODAL
+   --------------------------------------------------------------------------
+   Se usa DELEGACIÓN de eventos en lugar de un listener por tarjeta: los
+   productos llegan de Firestore (`js/public-init.js`) después de que la página
+   ya cargó, y un listener atado a cada `.product-card` se quedaría sin
+   cubrir las tarjetas nuevas.
    ========================================================================== */
 function initLoveMarket() {
-  const productCards = document.querySelectorAll('.product-card');
   const marketModal = document.getElementById('market-modal');
-  
-  if (!productCards.length || !marketModal) return;
-  
+  if (!marketModal) return;
+
   const modalImg = marketModal.querySelector('.modal-product-img');
   const modalTitle = marketModal.querySelector('.modal-product-title');
   const modalPrice = marketModal.querySelector('.modal-product-price');
   const modalDesc = marketModal.querySelector('.modal-product-desc');
   const whatsappLink = marketModal.querySelector('.whatsapp-checkout-btn');
   const modalClose = marketModal.querySelector('.modal-market-close');
-  
-  productCards.forEach(card => {
-    const viewBtn = card.querySelector('.btn-view-details');
-    if (!viewBtn) return;
-    
-    viewBtn.addEventListener('click', () => {
-      const title = card.querySelector('.product-title').textContent;
-      const price = card.querySelector('.product-price').textContent;
-      const imgUrl = card.querySelector('.product-image img').src;
-      const desc = card.getAttribute('data-desc') || "Producto oficial de la Comunidad Love Cartagena. Excelente calidad y confección.";
-      
-      modalImg.src = imgUrl;
-      modalTitle.textContent = title;
-      modalPrice.textContent = price;
-      modalDesc.textContent = desc;
-      
-      // Configure WhatsApp Link
+
+  function openProductModal(card) {
+    if (!card) return;
+
+    const title = card.querySelector('.product-title')?.textContent.trim() || 'Producto';
+    const price = card.querySelector('.product-price')?.textContent.trim() || '';
+    const img = card.querySelector('.product-image img');
+    const desc = card.getAttribute('data-desc') || "Producto oficial de la Comunidad Love Cartagena. Excelente calidad y confección.";
+
+    if (modalImg && img) modalImg.src = img.src;
+    if (modalTitle) modalTitle.textContent = title;
+    if (modalPrice) modalPrice.textContent = price;
+    if (modalDesc) modalDesc.textContent = desc;
+
+    // Configura el enlace de compra por WhatsApp con los datos de la tarjeta.
+    if (whatsappLink) {
       const message = encodeURIComponent(`Hola Comunidad Love, estoy interesado en adquirir el producto: *${title}* (${price}). ¿Me podrían confirmar disponibilidad y tallas?`);
       whatsappLink.href = `https://wa.me/573001234567?text=${message}`;
-      
-      marketModal.classList.add('active');
-      document.body.style.overflow = 'hidden';
-    });
-  });
-  
-  if (modalClose) {
-    modalClose.addEventListener('click', () => {
-      marketModal.classList.remove('active');
-      document.body.style.overflow = 'auto';
-    });
-  }
-  
-  marketModal.addEventListener('click', (e) => {
-    if (e.target === marketModal) {
-      marketModal.classList.remove('active');
-      document.body.style.overflow = 'auto';
     }
+
+    marketModal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeModal() {
+    marketModal.classList.remove('active');
+    document.body.style.overflow = 'auto';
+  }
+
+  // Un solo listener cubre las tarjetas estáticas y las que inyecta Firestore.
+  document.addEventListener('click', (event) => {
+    const trigger = event.target.closest('.btn-view-details');
+    if (!trigger) return;
+    openProductModal(trigger.closest('.product-card'));
+  });
+
+  if (modalClose) modalClose.addEventListener('click', closeModal);
+
+  marketModal.addEventListener('click', (e) => {
+    if (e.target === marketModal) closeModal();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && marketModal.classList.contains('active')) closeModal();
   });
 }
 

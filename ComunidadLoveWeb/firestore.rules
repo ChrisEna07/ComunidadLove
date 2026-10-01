@@ -1,0 +1,422 @@
+rules_version = '2';
+
+/* ==========================================================================
+   FIRESTORE RULES - COMUNIDAD LOVE / CLGESTIÓN
+   Deploy:  firebase deploy --only firestore:rules
+
+   MODELO DE ACCESO
+   ----------------
+   El acceso combina dos capas, igual que `js/lib/roles.js`:
+
+   1. ROL (jerarquía), de mayor a menor:
+        superadmin > admin (Pastor) > webmaster > servidor
+      El superadmin es una única cuenta y conserva acceso total.
+      El Pastor (admin) tiene también acceso total: la única diferencia es que
+      no puede crear, modificar ni promover cuentas superadmin.
+
+   2. FUNCIONES DELEGADAS (granulares), guardadas en
+      `users/{uid}.permissions` como array de claves del catálogo. Permiten
+      abrir un módulo concreto a un rol menor sin cambiarle el rol.
+
+   `can(action)` resuelve las dos capas y es la única puerta de entrada del
+   resto del archivo.
+
+   RESTRICCIONES DEL LENGUAJE DE REGLAS que condicionan este código:
+   1. Una función admite UNA sola sentencia `return`. No hay `if`.
+   2. No hay paréntesis para agrupar: `&&` tiene precedencia sobre `||`. Por eso
+      las condiciones compuestas se escriben como cadenas de operadores
+      booleanos y las partes delicadas van en funciones auxiliares.
+   3. Un `list` debe filtrar por los mismos campos que la regla consulta en
+      `resource`. Si la regla mira `isPublic`, la consulta del cliente DEBE
+      filtrar por `isPublic`, o Firestore rechaza la consulta.
+   ========================================================================== */
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /* ------------------------------------------------------------------
+       HELPERS DE PERFIL
+       ------------------------------------------------------------------ */
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // `.get(clave, defecto)` evita que una función reviente si el campo aún
+    // no existe: un usuario recién creado todavía no tiene `role`.
+    function myRole() {
+      return userDoc().get('role', '');
+    }
+
+    function myPermissions() {
+      return userDoc().get('permissions', []);
+    }
+
+    function isActiveUser() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isActive', true) == true;
+    }
+
+    function isSuperAdmin() {
+      return isActiveUser() && myRole() == 'superadmin';
+    }
+
+    function rankOf(role) {
+      return role == 'superadmin' ? 4
+        : role == 'admin' ? 3
+        : role == 'webmaster' ? 2
+        : role == 'servidor' ? 1
+        : 0;
+    }
+
+    /**
+     * Nivel jerárquico mínimo que ya incluye cada función.
+     * Debe mantenerse en espejo con `PERMISSIONS` en js/lib/roles.js.
+     */
+    function minRankOf(action) {
+      return action == 'members.read' ? 1
+        : action == 'members.write' ? 1
+        : action == 'followups.write' ? 1
+        : action == 'content.write' ? 2
+        : action == 'events.manage' ? 2
+        : action == 'market.manage' ? 2
+        : action == 'prayers.reply' ? 2
+        : action == 'members.delete' ? 3
+        : action == 'users.manage' ? 3
+        : action == 'audit.view' ? 3
+        : action == 'reports.export' ? 3
+        : 3;
+    }
+
+    /** ¿La función viene del rol? */
+    function byRole(action) {
+      return isActiveUser() && rankOf(myRole()) >= minRankOf(action);
+    }
+
+    /** ¿La función fue delegada explícitamente a este usuario? */
+    function byDelegation(action) {
+      return isActiveUser() && myPermissions().hasAny([action]);
+    }
+
+    /** Puerta única: rol O delegación. */
+    function can(action) {
+      return byRole(action) || byDelegation(action);
+    }
+
+    /* ------------------------------------------------------------------
+       FUNCIONES DELEGADAS VÁLIDAS
+       ------------------------------------------------------------------
+       Impide guardar claves inventadas o de otro sistema: una clave
+       desconocida no concede nada, pero ensuciaría el perfil y haría
+       imposible saber qué se delegó de verdad.
+       ------------------------------------------------------------------ */
+    function validPermissions() {
+      return request.resource.data.get('permissions', []).hasOnly([
+        'members.read',
+        'members.write',
+        'members.delete',
+        'events.manage',
+        'content.write',
+        'market.manage',
+        'prayers.reply',
+        'audit.view'
+      ]);
+    }
+
+    /* ------------------------------------------------------------------
+       CONTROL DE TAMAÑO DE IMÁGENES
+       ------------------------------------------------------------------
+       El proyecto no usa Cloud Storage: las imágenes viajan dentro del
+       documento. Sin este tope, cualquier cliente podría escribir un Base64
+       gigante y dejar el documento sin poder guardarse (Firestore admite 1 MiB).
+       El límite coincide con el del cliente (js/lib/image.js): 200 KB.
+       ------------------------------------------------------------------ */
+    // Acepta vacío, Base64 de imagen <= 200 KB o una URL http(s) <= 2048.
+    // Si `value` no es texto, `.size()` lanza error y la escritura se deniega.
+    function validImageField(value) {
+      return value.size() == 0
+        || value.size() <= 204800 && value.matches('^data:image/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=]+$')
+        || value.size() <= 2048 && value.matches('^https?://[^ ]+$');
+    }
+
+    function imageUnchanged(field) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasAny([field]) == false;
+    }
+
+    // Valida el campo de imagen del documento afectado por la escritura.
+    // En `create`, `resource` es null y todos los campos se dan por nuevos.
+    function writesValidImage(field) {
+      return resource != null && imageUnchanged(field)
+        || validImageField(request.resource.data.get(field, ''));
+    }
+
+    /* ------------------------------------------------------------------
+       CONTENIDO WEB
+       Lectura pública; escritura según la función del módulo.
+       ------------------------------------------------------------------ */
+    match /events/{docId} {
+      allow read: if true;
+      allow write: if can('events.manage') && writesValidImage('bannerUrl');
+    }
+
+    match /site_settings/{docId} {
+      allow read: if true;
+      allow write: if can('content.write');
+    }
+
+    match /announcements/{docId} {
+      allow read: if true;
+      allow write: if can('content.write');
+    }
+
+    /* ------------------------------------------------------------------
+       LOVE MARKET
+       Catálogo público: cualquiera puede leerlo, incluso sin cuenta.
+       Escribir exige `market.manage` (webmaster por rol, o delegada).
+       ------------------------------------------------------------------ */
+    function validProduct() {
+      return request.resource.data.get('name', '') is string
+        && request.resource.data.get('name', '').size() > 0
+        && request.resource.data.get('name', '').size() <= 120
+        && request.resource.data.get('price', 0) is number
+        && request.resource.data.get('price', 0) > 0
+        && request.resource.data.get('category', 'otros') in ['ropa', 'accesorios', 'decoracion', 'libros', 'otros'];
+    }
+
+    match /market_products/{productId} {
+      // El público sólo ve lo publicado; `watchActiveProducts()` consulta
+      // `where('isActive','==',true)` y esa misma condición es la que la regla
+      // exige, así que la consulta sigue siendo válida para un visitante. Con
+      // `allow read: if true` un producto pausado seguía siendo descargable
+      // desde la consola del navegador.
+      allow read: if resource.data.get('isActive', false) == true || can('market.manage');
+      allow create, update: if can('market.manage') && validProduct() && writesValidImage('imageUrl');
+      allow delete: if can('market.manage');
+    }
+
+    /* ------------------------------------------------------------------
+       MURO DE CLAMOR
+       ------------------------------------------------------------------
+       El visitante escribe; el equipo responde. Quien redacta nunca decide
+       su propio estado ni su visibilidad:
+
+       - `create`: sólo campos de petición, fuerza `status == 'abierta'`,
+         `isPublic == true` y `replies` vacío. Nadie puede auto-atenderse,
+         ocultarse ni atribuirse una respuesta verificada.
+       - `read`: el equipo lo ve todo; el público sólo lo que tiene
+         `isPublic == true`. El cliente público filtra por `isPublic`, así que
+         la regla sólo puede mirar ese campo (regla 3 de la cabecera).
+       - `update` / `delete`: exclusivos del equipo con `prayers.reply`.
+         Las respuestas se añaden aquí, no desde la web.
+
+       Al archivar una petición el servicio pone `isPublic = false`; así el
+       estado `archivada` nunca queda visible en el muro sin filtro de estado.
+       ------------------------------------------------------------------ */
+    function validPublicPrayer() {
+      return request.resource.data.get('name', '') is string
+        && request.resource.data.get('name', '').size() > 0
+        && request.resource.data.get('name', '').size() <= 60
+        && request.resource.data.get('text', '') is string
+        && request.resource.data.get('text', '').size() >= 5
+        && request.resource.data.get('text', '').size() <= 1200
+        && request.resource.data.get('type', 'petición') in ['petición', 'inquietud']
+        && request.resource.data.get('status', '') == 'abierta'
+        && request.resource.data.get('isPublic', false) == true
+        && request.resource.data.get('replies', []).size() == 0
+        && request.resource.data.get('reactions', {}) is map;
+    }
+
+    match /prayers/{prayerId} {
+      allow read: if can('prayers.reply') || resource.data.get('isPublic', false) == true;
+      allow create: if validPublicPrayer();
+      allow update, delete: if can('prayers.reply');
+    }
+
+    /* ------------------------------------------------------------------
+       REACCIONES
+       ------------------------------------------------------------------
+       Subcolección `prayers/{prayerId}/reactions/{reactionId}`: es lo único
+       que el visitante puede escribir después de enviar su petición.
+
+       Se eligió una subcolección y no contadores en el documento padre porque
+       un contador compartido obligaría a dar permiso de escritura sobre el
+       documento entero, y entonces un visitante podría alterar el texto o el
+       nombre de la petición de otra persona.
+
+       El id lo genera el navegador como `<tipo>_<tokenAleatorio>` y se guarda
+       en localStorage: así una misma reacción siempre es el mismo documento
+       (no se duplican al pulsing dos veces) y sólo quien la creó puede quitarla,
+       porque los demás no pueden adivinar el token.
+       ------------------------------------------------------------------ */
+    function validReaction(reactionId) {
+      return request.resource.data.keys().hasOnly(['kind', 'createdAt'])
+        && request.resource.data.kind in ['praying', 'love', 'blessed', 'faith']
+        && reactionId.matches('^(praying|love|blessed|faith)_[0-9a-f]{6,64}$');
+    }
+
+    match /prayers/{prayerId}/reactions/{reactionId} {
+      allow read: if true;
+      allow create: if validReaction(reactionId);
+      allow delete: if true;
+      allow update: if false;
+    }
+
+    /* ------------------------------------------------------------------
+       GESTIÓN DE MIEMBROS
+       ------------------------------------------------------------------ */
+    match /members/{memberId} {
+      allow read: if can('members.read');
+      allow create, update: if can('members.write') && writesValidImage('photoUrl');
+      allow delete: if can('members.delete');
+
+      // La bitácora hereda el alcance del padre.
+      match /followups/{followId} {
+        allow read: if can('members.read');
+        allow write: if can('followups.write');
+      }
+    }
+
+    /* ------------------------------------------------------------------
+       USUARIOS DEL SISTEMA
+       ------------------------------------------------------------------
+       - Cada quien lee su propio perfil; el resto, sólo quien tenga
+         `users.manage`. Así los correos del equipo dejan de ser públicos para
+         cualquier usuario activo.
+       - En su PRIMER inicio de sesión cada usuario crea su propio perfil,
+         siempre con `role == null` e `isActive == false`. Nadie puede
+         auto-asignarse privilegios.
+       - Quien tenga `users.manage` da de alta y edita perfiles, incluido el
+         campo `fullName` y las funciones delegadas.
+       - El rol `superadmin` es intransferible: sólo un superadmin puede
+         crear, tocar o promover una cuenta superadmin.
+       - Nadie se cambia a sí mismo su propio rol ni su estado: evita el
+         autobloqueo y la autoescalada.
+       ------------------------------------------------------------------ */
+    function managesUsers() {
+      return can('users.manage');
+    }
+
+    // Para escrituras: la cuenta afectada y la resultante NO pueden ser
+    // superadmin si quien escribe no lo es.
+    function updateTouchesNoSuperAdmin() {
+      return isSuperAdmin()
+        || resource.data.get('role', '') != 'superadmin'
+          && request.resource.data.get('role', '') != 'superadmin';
+    }
+
+    function createIsNoSuperAdmin() {
+      return isSuperAdmin() || request.resource.data.get('role', '') != 'superadmin';
+    }
+
+    function deleteIsNoSuperAdmin() {
+      return isSuperAdmin() || resource.data.get('role', '') != 'superadmin';
+    }
+
+    function keepsOwnRoleAndActive() {
+      return request.resource.data.get('role', '') == resource.data.get('role', '')
+        && request.resource.data.get('isActive', true) == resource.data.get('isActive', true);
+    }
+
+    // El campo `uid` debe coincidir con el id del documento. El alta es
+    // "UID primero": `createUserAccount()` guarda en `users/{uid}` para que
+    // `registerOwnProfile()` encuentre ese mismo perfil al iniciar sesión. Si
+    // `uid` y el id se desviaran, el listado apuntaría a un documento
+    // inexistente y las ediciones se aplicarían sobre otro usuario.
+    function uidMatchesDocId(userId) {
+      return request.resource.data.get('uid', userId) == userId;
+    }
+
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId || managesUsers();
+
+      allow create: if managesUsers() && createIsNoSuperAdmin() && validPermissions()
+        && uidMatchesDocId(userId)
+        || (
+          request.auth != null
+          && request.auth.uid == userId
+          && !exists(/databases/$(database)/documents/users/$(request.auth.uid))
+          && request.resource.data.get('role', null) == null
+          && request.resource.data.get('isActive', false) == false
+          && uidMatchesDocId(userId)
+          && request.resource.data.keys().hasOnly([
+            'uid', 'email', 'displayName', 'fullName', 'role', 'permissions', 'isActive', 'createdAt'
+          ])
+        );
+
+      allow update: if managesUsers() && updateTouchesNoSuperAdmin() && validPermissions()
+        && uidMatchesDocId(userId)
+        && (userId != request.auth.uid || keepsOwnRoleAndActive());
+
+      // En un borrado `request.resource` es null, así que no se puede usar
+      // `keepsOwnRoleAndActive()` (daría error y negaría la operación de
+      // forma opaca). Aquí la condición es explícita: nadie borra su propia
+      // cuenta, para no quedarse fuera del panel por un descuido.
+      allow delete: if managesUsers() && deleteIsNoSuperAdmin()
+        && userId != request.auth.uid;
+    }
+
+    /* ------------------------------------------------------------------
+       EQUIPO PASTORAL (selector de líderes)
+       `users` es privada, pero para asignar un líder a un miembro hace falta
+       ver nombre y correo. Sólo quien gestiona usuarios la escribe, y al
+       escribir se le impide inventarse un superadmin.
+       ------------------------------------------------------------------ */
+    match /team/{uid} {
+      allow read: if isActiveUser();
+      allow write: if managesUsers()
+        && (isSuperAdmin() || request.resource.data.get('role', '') != 'superadmin');
+    }
+
+    /* ------------------------------------------------------------------
+       AUDITORÍA
+       ------------------------------------------------------------------
+       Registro de las acciones del equipo.
+
+       - Lectura: superadmin, Pastor o quien tenga `audit.view` delegada.
+       - Escritura: cualquier usuario activo EXCEPTO el superadmin. Sus
+         acciones son la operación ordinaria de quien administra el sistema y
+         no dejan rastro, por decisión de privacidad.
+       - Un usuario sólo puede escribir entradas con su propio `userId`, para
+         que no se pueda atribuir una acción a otra persona.
+       - No se permite ni editar ni borrar: el registro es inmutable, o no
+         serviría para nada.
+       ------------------------------------------------------------------ */
+    function validAuditEntry() {
+      return request.resource.data.keys().hasOnly([
+          'timestamp', 'userId', 'userEmail', 'userName', 'action', 'module', 'details'
+        ])
+        && request.resource.data.get('action', '') is string
+        && request.resource.data.get('action', '').size() > 0
+        && request.resource.data.get('action', '').size() <= 80
+        && request.resource.data.get('module', 'system') in [
+          'members', 'prayers', 'events', 'market', 'users', 'settings', 'system'
+        ];
+    }
+
+    match /audit_logs/{logId} {
+      allow read: if can('audit.view');
+      allow create: if isActiveUser() && !isSuperAdmin()
+        && request.resource.data.get('userId', '') == request.auth.uid
+        && validAuditEntry();
+      allow update, delete: if false;
+    }
+
+    /* ------------------------------------------------------------------
+       INVITACIONES (obsoleto)
+       El alta ya no pasa por invitaciones: se usa `users` directamente.
+       La colección queda sin regla a propósito, así que el `deny` final la
+       cierra. Si algún día reaparece, no debe quedar abierta por costumbre.
+       ------------------------------------------------------------------ */
+    match /userInvites/{inviteId} {
+      allow read, write: if false;
+    }
+
+    /* ------------------------------------------------------------------
+       DENEGADO POR DEFECTO
+       Cualquier colección no declarada arriba queda inaccesible.
+       ------------------------------------------------------------------ */
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
