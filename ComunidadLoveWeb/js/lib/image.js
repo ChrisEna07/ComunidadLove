@@ -360,3 +360,8 @@ export async function compressImageFile(file, options = {}) {
     canvas.height = 0;
   }
 }
+
+/**
+ * Alias de compatibilidad para clientes de la web pública.
+ */
+export { compressImageFile as compressFileToDataUrl };

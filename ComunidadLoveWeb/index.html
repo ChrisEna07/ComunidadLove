@@ -682,7 +682,7 @@
           <h3>Escríbenos</h3>
           <p>Tu petición será tratada con confidencialidad. Queremos apoyarte y darte ánimo.</p>
           
-<form id="prayer-form">
+          <form id="prayer-form" action="javascript:void(0);" onsubmit="event.preventDefault();">
             <div class="form-group">
               <label for="form-name" class="form-label">Tu Nombre (puedes usar pseudónimo)</label>
               <input type="text" id="form-name" name="prayer-name" class="form-control" placeholder="Ej. Juan Pérez" maxlength="60" required>
@@ -832,7 +832,7 @@
           </button>
           <span style="font-weight: 700; color: var(--secondary);">Solicitud de Pedido</span>
         </div>
-        <form id="cl-public-order-form" class="order-form" novalidate>
+        <form id="cl-public-order-form" class="order-form" action="javascript:void(0);" onsubmit="event.preventDefault();" novalidate>
           <input type="hidden" id="order-product-id" name="productId">
           <input type="hidden" id="order-product-name" name="productName">
           <input type="hidden" id="order-product-price" name="productPrice">

@@ -9,7 +9,7 @@
    ========================================================================== */
 
 import { firebaseReady, configError } from './firebase.js';
-import { installImageFallback, compressFileToDataUrl } from './lib/image.js';
+import { installImageFallback, compressImageFile, compressFileToDataUrl } from './lib/image.js';
 import { watchSettings } from './services/site.js';
 import { watchEvents, CATEGORY_LABELS } from './services/events.js';
 import { watchAnnouncements, isAnnouncementVisible } from './services/announcements.js';
