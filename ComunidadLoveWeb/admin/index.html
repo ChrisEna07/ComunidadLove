@@ -12,6 +12,44 @@
   <meta name="theme-color" content="#ff6b4a">
   <link rel="apple-touch-icon" href="../favicon.png">
 
+  <!-- Estilos críticos para el loader inicial (evita desborde de imagen y saltos de layout) -->
+  <style>
+    .initial-loader, .clg-heart-pulse-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+    .initial-loader img, .clg-heart-pulse-logo {
+      width: 140px;
+      height: auto;
+      max-width: 80vw;
+      object-fit: contain;
+      display: block;
+      margin: 0 auto 1rem;
+    }
+    .clg-boot {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #fdfbf7;
+      padding: 24px;
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    }
+    .clg-boot-card {
+      background: #ffffff;
+      border-radius: 22px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.07);
+      padding: 44px 40px;
+      max-width: 460px;
+      width: 100%;
+      box-sizing: border-box;
+      text-align: center;
+    }
+  </style>
+
   <!-- Stylesheet exclusivo del panel. No toca la landing pública. -->
   <link rel="stylesheet" href="./admin.css">
 
@@ -33,7 +71,7 @@
 
   <div class="clg-app" id="clg-app">
     <div class="clg-boot">
-      <div class="clg-boot-card">
+      <div class="clg-boot-card initial-loader">
         <div class="clg-heart-pulse-box">
           <img src="../Assets/logo-color.png" alt="Comunidad Love" class="clg-heart-pulse-logo" onerror="this.style.display='none'">
         </div>
@@ -46,33 +84,5 @@
   <div class="clg-toast-host" id="clg-toast-host" aria-live="polite"></div>
 
   <script type="module" src="../js/admin/main.js"></script>
-  <script>
-    // Salvaguarda: sólo si tras 12 segundos la aplicación no ha respondido
-    setTimeout(function() {
-      if (window.__CLG_STARTED__) return;
-      var root = document.getElementById('clg-app');
-      var p = root ? root.querySelector('.clg-boot p') : null;
-      if (p && p.textContent.includes('Cargando el sistema')) {
-        root.innerHTML = `
-          <div class="clg-boot">
-            <div class="clg-boot-card" style="max-width: 500px; text-align: left; padding: 30px;">
-              <div style="text-align: center; margin-bottom: 16px;">
-                <i class="fas fa-triangle-exclamation" style="color: #ff6b4a; font-size: 2.5rem; margin-bottom: 12px; display: inline-block;"></i>
-                <h1 style="font-size: 1.4rem; color: #1e293b;">Tiempo de espera agotado</h1>
-                <p style="font-size: 0.88rem; color: #64748b; margin-top: 6px;">El panel está tardando más de lo esperado en iniciar.</p>
-              </div>
-              <div style="background: rgba(255, 107, 74, 0.08); border-radius: 10px; padding: 14px; font-size: 0.82rem; color: #334155; line-height: 1.5; margin-bottom: 20px;">
-                Verifica tu conexión a internet o haz clic en reintentar para recargar la aplicación.
-              </div>
-              <div style="display: flex; gap: 10px; justify-content: space-between;">
-                <a href="../index.html" class="clg-btn clg-btn-ghost" style="text-decoration:none;"><i class="fas fa-arrow-left"></i><span>Sitio público</span></a>
-                <button type="button" class="clg-btn clg-btn-primary" onclick="location.reload()"><i class="fas fa-rotate"></i><span>Reintentar</span></button>
-              </div>
-            </div>
-          </div>
-        `;
-      }
-    }, 12000);
-  </script>
 </body>
 </html>

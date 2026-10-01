@@ -33,8 +33,8 @@ if (typeof window !== 'undefined') {
 // Inicializar captura global de excepciones y PWA offline
 initGlobalErrorCapture();
 initPWA();
-
-const root = qs('#clg-app');
+const getAppRoot = () => document.getElementById('clg-app') || document.getElementById('app') || qs('#clg-app') || qs('#app') || document.body;
+let root = getAppRoot();
 
 const NAV_ITEMS = [
   { path: 'panel', label: 'Resumen', icon: 'fa-gauge-high', permission: null },
@@ -461,64 +461,104 @@ async function doLogout() {
 }
 
 /* --------------------------------------------------------------------------
-   ARRANQUE
+   ARRANQUE Y CICLO DE VIDA DEL PANEL
    -------------------------------------------------------------------------- */
-function boot() {
-  installImageFallback(document);
+export async function startAdminRouter() {
+  root = getAppRoot();
+  try {
+    installImageFallback(document);
 
-  if (!firebaseReady) {
-    renderBoot(configError, { fatal: true });
-    return;
-  }
-
-  renderBoot('Verificando sesión…');
-
-  watchSession((session) => {
-    if (!session) {
-      setSession(null, null);
-      stopDataStream();
-      renderLogin(root);
+    if (!firebaseReady) {
+      renderBoot(configError || 'No se pudo conectar a Firebase.', { fatal: true });
       return;
     }
 
-    if (session.pending) return;
+    renderBoot('Verificando sesión…');
 
-    if (session.profile?.error) {
-      renderBoot('No se pudo verificar tu rol. Revisa las reglas de Firestore y tu sesión.', { fatal: true });
-      return;
-    }
-
-    if (!session.profile?.role) {
-      setSession(session.user, null);
-      renderNoProfile(session);
-      return;
-    }
-
-    setSession(session.user, session.profile);
-
-    if (!root.querySelector('.clg-layout')) {
-      renderShell();
-    }
-    startDataStream();
-    syncActiveNav();
-  });
-
-  // Mantiene el menú lateral sincronizado con la ruta activa.
-  subscribe(['session'], () => {
-    if (root.querySelector('.clg-layout')) {
-      syncActiveNav();
-      const chip = qs('.clg-user-chip-text', root);
-      const profile = getState().profile;
-      if (chip && profile) {
-        chip.querySelector('strong').textContent = profile.displayName || 'Usuario';
-        chip.querySelector('small').textContent = roleLabel(profile.role);
+    // Salvaguarda: si Firebase Auth tarda más de 3.5s (ej. red lenta o primera sincronización de caché),
+    // pintar preventivamente la vista de login para evitar bloqueos perceptuales.
+    let sessionSettled = false;
+    const sessionTimer = setTimeout(() => {
+      if (!sessionSettled && !getState().session?.user) {
+        console.warn('[CLGestión] Verificación de sesión lenta; renderizando login preventivamente.');
+        setSession(null, null);
+        stopDataStream();
+        renderLogin(root);
       }
+    }, 3500);
+
+    watchSession((session) => {
+      sessionSettled = true;
+      clearTimeout(sessionTimer);
+
+      if (!session) {
+        setSession(null, null);
+        stopDataStream();
+        renderLogin(root);
+        return;
+      }
+
+      if (session.pending) return;
+
+      if (session.profile?.error) {
+        renderBoot('No se pudo verificar tu rol. Revisa las reglas de Firestore y tu sesión.', { fatal: true });
+        return;
+      }
+
+      if (!session.profile?.role) {
+        setSession(session.user, null);
+        renderNoProfile(session);
+        return;
+      }
+
+      setSession(session.user, session.profile);
+
+      if (!root.querySelector('.clg-layout')) {
+        renderShell();
+      }
+      startDataStream();
+      syncActiveNav();
+    });
+
+    // Mantiene el menú lateral sincronizado con la ruta activa.
+    subscribe(['session'], () => {
+      if (root.querySelector('.clg-layout')) {
+        syncActiveNav();
+        const chip = qs('.clg-user-chip-text', root);
+        const profile = getState().profile;
+        if (chip && profile) {
+          chip.querySelector('strong').textContent = profile.displayName || 'Usuario';
+          chip.querySelector('small').textContent = roleLabel(profile.role);
+        }
+      }
+    });
+  } catch (err) {
+    console.error('[CLGestión] Error crítico al arrancar:', err);
+    const app = document.getElementById('app') || document.getElementById('clg-app') || root;
+    if (app) {
+      app.innerHTML = `
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:2rem;text-align:center;font-family:sans-serif;">
+          <div style="font-size:2.5rem;margin-bottom:1rem;">⚠️</div>
+          <h2 style="margin:0 0 0.5rem;color:#1e293b;">Error al iniciar CLGestión</h2>
+          <p style="color:#64748b;max-width:400px;margin-bottom:1.5rem;">${escapeHTML(err?.message || 'Error de conexión')}</p>
+          <button onclick="location.reload()" style="background:#f97316;color:#fff;border:none;padding:0.75rem 1.5rem;border-radius:8px;font-weight:600;cursor:pointer;">Reintentar</button>
+        </div>
+      `;
     }
-  });
+  }
 }
 
+export const initApp = startAdminRouter;
+export const boot = startAdminRouter;
+
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', boot, { once: true });
+  document.addEventListener('DOMContentLoaded', async () => {
+    try {
+      await startAdminRouter();
+    } catch (err) {
+      console.error('[CLGestión] Error crítico al arrancar:', err);
+    }
+  }, { once: true });
 } else {
-  boot();
+  startAdminRouter();
 }

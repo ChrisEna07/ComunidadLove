@@ -43,9 +43,13 @@ export {
 } from './roles.js';
 
 export async function fetchUserProfile(uid) {
-  if (!uid) return null;
+  if (!uid || !db) return null;
   try {
-    const snapshot = await getDoc(doc(db, 'users', uid));
+    const fetchDoc = getDoc(doc(db, 'users', uid));
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Timeout al consultar perfil')), 3500)
+    );
+    const snapshot = await Promise.race([fetchDoc, timeout]);
     if (!snapshot.exists()) {
       return { uid, email: '', displayName: '', role: null, permissions: [], isActive: false, missing: true };
     }
@@ -59,7 +63,7 @@ export async function fetchUserProfile(uid) {
       permissions: sanitizePermissions(data.permissions)
     };
   } catch (error) {
-    console.warn('[CL] No se pudo leer el perfil del usuario:', error);
+    console.warn('[CL] No se pudo leer el perfil del usuario (o timeout):', error);
     return { uid, role: null, permissions: [], isActive: true, error: true };
   }
 }
@@ -124,14 +128,24 @@ export function updateUserPassword(newPassword) {
  * Firma: (session) => void  donde session = { user, profile } | null
  */
 export function watchSession(callback) {
+  if (!auth) {
+    console.warn('[CL] Auth no disponible para watchSession.');
+    callback(null);
+    return () => {};
+  }
   return onAuthStateChanged(auth, async (user) => {
     if (!user) {
       callback(null);
       return;
     }
     callback({ user, profile: null, pending: true });
-    const profile = await resolveProfile(user);
-    callback({ user, profile, pending: false });
+    try {
+      const profile = await resolveProfile(user);
+      callback({ user, profile, pending: false });
+    } catch (err) {
+      console.warn('[CL] Error al resolver perfil en watchSession:', err);
+      callback({ user, profile: { uid: user.uid, role: null, error: true }, pending: false });
+    }
   });
 }
 
