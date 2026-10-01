@@ -895,6 +895,23 @@ function renderDynamicMinistries(ministries) {
       if (desc && kids.description) desc.textContent = kids.description;
       const img = card.querySelector('.kids-main-img');
       if (img && kids.imageUrl) img.src = kids.imageUrl;
+      const title = kids.name || kids.title;
+      if (title) {
+        const h3 = card.querySelector('h3');
+        if (h3) {
+          const logoImg = h3.querySelector('.kids-logo-img');
+          const cleanSuffix = title.replace(/^Love\s*/i, '');
+          if (logoImg) {
+            h3.innerHTML = '';
+            h3.appendChild(logoImg);
+            const span = document.createElement('span');
+            span.textContent = cleanSuffix ? ` ${cleanSuffix}` : '';
+            h3.appendChild(span);
+          } else {
+            h3.textContent = title;
+          }
+        }
+      }
     }
   }
 
@@ -911,11 +928,23 @@ function renderDynamicMinistries(ministries) {
       if (quote && woman.quote) quote.textContent = woman.quote;
       const img = card.querySelector('.woman-media-container img');
       if (img && woman.imageUrl) img.src = woman.imageUrl;
+      const title = woman.name || woman.title;
+      if (title) {
+        const h3 = card.querySelector('h3');
+        if (h3) {
+          const parts = title.split(' ');
+          if (parts.length > 1) {
+            h3.innerHTML = `${escapeHTML(parts[0])} <span>${escapeHTML(parts.slice(1).join(' '))}</span>`;
+          } else {
+            h3.textContent = title;
+          }
+        }
+      }
     }
   }
 
   // 3. Adora
-  const adora = map.get('adora');
+  const adora = map.get('adora') || map.get('love-adora');
   if (adora) {
     const card = qs('.adora-section .adora-card');
     if (card) {
@@ -925,6 +954,50 @@ function renderDynamicMinistries(ministries) {
       if (desc && adora.description) desc.textContent = adora.description;
       const iframe = card.querySelector('.adora-video-container iframe');
       if (iframe && adora.videoUrl) iframe.src = adora.videoUrl;
+      const title = adora.name || adora.title;
+      if (title) {
+        const h3 = card.querySelector('h3');
+        if (h3) {
+          const parts = title.split(' ');
+          if (parts.length > 1) {
+            h3.innerHTML = `${escapeHTML(parts[0])} <span>${escapeHTML(parts.slice(1).join(' '))}</span>`;
+          } else {
+            h3.textContent = title;
+          }
+        }
+      }
+    }
+    // Collage de 4 fotos
+    const galleryContainer = qs('#adora-gallery') || qs('.adora-media-container');
+    if (galleryContainer) {
+      const defaults = [
+        './Assets/Love adora/love adora (1).jpg',
+        './Assets/Love adora/love adora (2).jpg',
+        './Assets/Love adora/love adora (3).jpg',
+        './Assets/Love adora/love adora (4).jpg'
+      ];
+      const alts = [
+        'Love Adora Alabanza',
+        'Love Adora Adoración',
+        'Love Adora Músicos',
+        'Love Adora Voces'
+      ];
+      const photos = Array.isArray(adora.gallery) && adora.gallery.length
+        ? adora.gallery
+        : (adora.imageUrl ? [adora.imageUrl] : []);
+
+      const imgs = galleryContainer.querySelectorAll('img');
+      if (imgs.length === 4) {
+        for (let i = 0; i < 4; i++) {
+          const src = photos[i] || defaults[i];
+          if (src) imgs[i].src = src;
+          imgs[i].alt = alts[i] || `Love Adora ${i + 1}`;
+        }
+      } else {
+        galleryContainer.innerHTML = [0, 1, 2, 3].map((i) => `
+          <img src="${escapeHTML(photos[i] || defaults[i])}" alt="${escapeHTML(alts[i])}">
+        `).join('');
+      }
     }
   }
 
@@ -947,12 +1020,29 @@ function renderDynamicMinistries(ministries) {
         const img = card.querySelector('.news-media-card img');
         if (img) img.src = bn.imageUrl;
       }
+      const title = bn.name || bn.title;
+      if (title) {
+        const h3 = card.querySelector('h3');
+        if (h3) {
+          const parts = title.split(' ');
+          if (parts.length > 1) {
+            h3.innerHTML = `${escapeHTML(parts[0])} <span>${escapeHTML(parts.slice(1).join(' '))}</span>`;
+          } else {
+            h3.textContent = title;
+          }
+        }
+      }
     }
   }
 
   // 5. Comunidad
   const com = map.get('comunidad');
   if (com) {
+    const title = com.name || com.title;
+    if (title) {
+      const h3 = qs('.pastors-info h3');
+      if (h3) h3.textContent = title;
+    }
     const desc = qs('.pastors-info .about-desc');
     if (desc && com.description) desc.textContent = com.description;
     const quote = qs('.pastors-quote');

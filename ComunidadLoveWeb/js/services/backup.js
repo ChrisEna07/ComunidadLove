@@ -16,7 +16,9 @@ const BACKUP_COLLECTIONS = [
   'market_orders',
   'announcements',
   'prayers',
-  'members'
+  'members',
+  'ministries',
+  'gallery_items'
 ];
 
 export async function exportFirestoreBackup() {

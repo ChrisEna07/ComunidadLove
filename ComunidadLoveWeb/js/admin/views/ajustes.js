@@ -20,6 +20,9 @@ import { watchGallery, addGalleryItem, deleteGalleryItem, GALLERY_CATEGORIES, DE
 import { bindImageInputs, imageInput, prepareImageValue } from '../image-input.js';
 import { resolveAssetUrl } from '../../lib/image.js';
 import { bindLiveFormValidation } from '../../lib/validation.js';
+import { openHardResetModal } from '../hard-reset-modal.js';
+
+export { openHardResetModal };
 
 let ministriesCache = DEFAULT_MINISTRIES;
 let galleryCache = DEFAULT_GALLERY_ITEMS;
@@ -239,7 +242,7 @@ export function renderAjustes(container) {
           <div class="clg-card" style="margin-bottom: 24px;">
             <div class="clg-card-header" style="display:flex; justify-content:space-between; align-items:center;">
               <div>
-                <h3 style="margin:0; font-size:1.15rem; color:var(--clg-secondary);">${escapeHTML(min.name)}</h3>
+                <h3 style="margin:0; font-size:1.15rem; color:var(--clg-secondary);">${escapeHTML(min.name || min.title || '')}</h3>
                 <small class="clg-hint">${escapeHTML(min.badge || 'Ministerio oficial')}</small>
               </div>
               <span class="clg-tag clg-tag-primary">${escapeHTML(min.id)}</span>
@@ -247,7 +250,7 @@ export function renderAjustes(container) {
             <div class="clg-card-body">
               <form class="clg-form clg-ministry-form" data-ministry-id="${min.id}">
                 <div class="clg-grid-2">
-                  ${field({ keyPrefix: min.id, name: 'name', label: 'Nombre del Ministerio', value: min.name || '', required: true })}
+                  ${field({ keyPrefix: min.id, name: 'name', label: 'Nombre del Ministerio (Título)', value: min.name || min.title || '', required: true })}
                   ${field({ keyPrefix: min.id, name: 'badge', label: 'Insignia / Etiqueta', value: min.badge || '' })}
                 </div>
                 ${field({ keyPrefix: min.id, name: 'description', label: 'Descripción Principal', type: 'textarea', rows: 3, value: min.description || '', required: true })}
@@ -256,7 +259,7 @@ export function renderAjustes(container) {
                   ? field({ keyPrefix: min.id, name: 'quote', label: 'Cita / Versículo destacado', value: min.quote || '' })
                   : ''}
                 
-                ${min.id === 'adora'
+                ${min.id === 'adora' || min.id === 'love-adora'
                   ? field({ keyPrefix: min.id, name: 'videoUrl', label: 'Enlace del Video (YouTube Embed)', value: min.videoUrl || '', placeholder: 'https://www.youtube.com/embed/...' })
                   : ''}
 
@@ -270,17 +273,39 @@ export function renderAjustes(container) {
                   `
                   : ''}
 
-                ${imageInput({
-                  keyPrefix: min.id,
-                  name: 'imageUrl',
-                  label: 'Imagen Principal',
-                  value: min.imageUrl || '',
-                  hint: 'Pega una dirección web o sube una imagen (se comprimirá a < 200 KB).'
-                })}
+                ${min.id === 'adora' || min.id === 'love-adora'
+                  ? `
+                  <div class="clg-card" style="background: var(--clg-surface-2, #0f172a); border: 1px solid var(--clg-line, #334155); border-radius: 8px; padding: 16px; margin: 16px 0;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+                      <div>
+                        <h4 style="margin: 0; font-size: 0.95rem; color: var(--clg-primary, #38bdf8);"><i class="fas fa-images"></i> Collage de 4 Fotografías (Love Adora)</h4>
+                        <small class="clg-hint">Cuadrícula visual de 4 fotos en la página principal.</small>
+                      </div>
+                      <span class="clg-tag clg-tag-info" style="font-size: 0.72rem;">Cuadrícula 4 Fotos</span>
+                    </div>
+                    <div class="clg-grid-2">
+                      ${[0, 1, 2, 3].map((idx) => imageInput({
+                        keyPrefix: `${min.id}-gal`,
+                        name: `photo_${idx}`,
+                        label: `Foto ${idx + 1} del Collage`,
+                        value: (Array.isArray(min.gallery) && min.gallery[idx]) || (idx === 0 ? min.imageUrl : '') || `./Assets/Love adora/love adora (${idx + 1}).jpg`,
+                        hint: `Posición ${idx + 1} en el collage de la web.`
+                      })).join('')}
+                    </div>
+                  </div>
+                  `
+                  : imageInput({
+                    keyPrefix: min.id,
+                    name: 'imageUrl',
+                    label: 'Imagen Principal',
+                    value: min.imageUrl || '',
+                    hint: 'Pega una dirección web o sube una imagen (se comprimirá a < 200 KB).'
+                  })
+                }
 
                 <div style="margin-top: 12px; text-align: right;">
                   <button type="submit" class="clg-btn clg-btn-primary">
-                    <i class="fas fa-floppy-disk"></i><span>Guardar ${escapeHTML(min.name)}</span>
+                    <i class="fas fa-floppy-disk"></i><span>Guardar ${escapeHTML(min.name || min.title || '')}</span>
                   </button>
                 </div>
               </form>
@@ -304,6 +329,7 @@ export function renderAjustes(container) {
 
         const patch = {
           name: data[`${prefix}name`],
+          title: data[`${prefix}name`],
           badge: data[`${prefix}badge`],
           description: data[`${prefix}description`],
           quote: data[`${prefix}quote`] || '',
@@ -319,11 +345,25 @@ export function renderAjustes(container) {
           };
         }
 
-        try {
-          patch.imageUrl = prepareImageValue(patch.imageUrl);
-        } catch (err) {
-          showToast(err.message, 'danger');
-          return;
+        if (id === 'adora' || id === 'love-adora') {
+          try {
+            const g0 = prepareImageValue(data[`${id}-gal-photo_0`] || '');
+            const g1 = prepareImageValue(data[`${id}-gal-photo_1`] || '');
+            const g2 = prepareImageValue(data[`${id}-gal-photo_2`] || '');
+            const g3 = prepareImageValue(data[`${id}-gal-photo_3`] || '');
+            patch.gallery = [g0, g1, g2, g3];
+            patch.imageUrl = g0 || './Assets/Love adora/love adora (1).jpg';
+          } catch (err) {
+            showToast(err.message, 'danger');
+            return;
+          }
+        } else {
+          try {
+            patch.imageUrl = prepareImageValue(patch.imageUrl);
+          } catch (err) {
+            showToast(err.message, 'danger');
+            return;
+          }
         }
 
         setLoading(form, true, 'Guardando…');
@@ -612,128 +652,6 @@ export function renderAjustes(container) {
     // Hard Reset a estado de fábrica (Exclusivo Super Admin con respaldo previo)
     btnHardReset?.addEventListener('click', () => {
       openHardResetModal(actor);
-    });
-  }
-
-  function openHardResetModal(actor) {
-    const existing = document.getElementById('clg-hard-reset-modal-host');
-    if (existing) existing.remove();
-
-    const modalHost = document.createElement('div');
-    modalHost.id = 'clg-hard-reset-modal-host';
-    document.body.appendChild(modalHost);
-
-    let backupDownloaded = false;
-    const localKeysCount = Object.keys(localStorage).filter((k) => k.startsWith('cl_')).length;
-
-    modalHost.innerHTML = `
-      <div class="clg-modal-overlay" style="position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(4px); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px;">
-        <div class="clg-modal-card" style="background: var(--clg-surface, #1e293b); border: 2px solid #ef4444; border-radius: 16px; max-width: 580px; width: 100%; padding: 28px; box-shadow: 0 25px 50px -12px rgba(239, 68, 68, 0.4); color: var(--clg-text, #f8fafc);">
-          
-          <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 16px; color: #ef4444;">
-            <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(239, 68, 68, 0.15); display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
-              <i class="fas fa-triangle-exclamation"></i>
-            </div>
-            <div>
-              <h2 style="font-size: 1.3rem; margin: 0; color: #f87171;">Zona de Riesgo: Hard Reset de Fábrica</h2>
-              <p style="font-size: 0.84rem; color: #94a3b8; margin: 2px 0 0 0;">Exclusivo Super Admin · Christian Romero</p>
-            </div>
-          </div>
-
-          <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 10px; padding: 14px; margin-bottom: 20px; font-size: 0.88rem; line-height: 1.5; color: #fca5a5;">
-            <strong>⚠️ ADVERTENCIA CRÍTICA:</strong> Esta acción vaciará por completo las colecciones de:
-            <strong>Miembros registrados</strong>, <strong>Eventos</strong>, <strong>Pedidos y Productos de Market</strong>,
-            <strong>Peticiones de Oración</strong>, <strong>Avisos</strong>, <strong>Galería</strong> y <strong>Ministerios</strong>.
-            <br><br>
-            <em>Nota: La base de datos de usuarios (cuentas y roles de acceso) permanecerá intacta.</em>
-          </div>
-
-          <!-- Paso 1: Respaldo Obligatorio -->
-          <div style="background: var(--clg-surface-2, #0f172a); border: 1px solid var(--clg-line, #334155); border-radius: 10px; padding: 16px; margin-bottom: 16px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
-              <div>
-                <strong style="display: block; font-size: 0.92rem; color: #38bdf8;">Paso 1: Respaldo de Seguridad</strong>
-                <span style="font-size: 0.82rem; color: #94a3b8;">Genera una copia JSON completa (incluye miembros y pedidos)</span>
-              </div>
-              <button type="button" class="clg-btn clg-btn-primary" id="btn-modal-backup-now" style="font-size: 0.84rem;">
-                <i class="fas fa-download"></i><span>Descargar Respaldo JSON Completo Ahora</span>
-              </button>
-            </div>
-            <div id="modal-backup-status" style="margin-top: 8px; font-size: 0.8rem; color: #10b981; display: none;">
-              <i class="fas fa-circle-check"></i> Respaldo descargado correctamente.
-            </div>
-          </div>
-
-          <!-- Paso 2: Verificación de Registros Locales -->
-          <div style="font-size: 0.84rem; color: #94a3b8; margin-bottom: 18px;">
-            <i class="fas fa-database"></i> Registros y claves locales en IndexedDB / LocalStorage detectadas: <strong>${localKeysCount} claves</strong>.
-          </div>
-
-          <!-- Paso 3: Confirmación con palabra clave -->
-          <div style="margin-bottom: 24px;">
-            <label style="display: block; font-size: 0.86rem; font-weight: 600; margin-bottom: 8px;">
-              Paso 2: Escribe la palabra clave <code style="background: rgba(239, 68, 68, 0.2); color: #f87171; padding: 2px 6px; border-radius: 4px; font-size: 0.95rem;">RESET</code> para confirmar:
-            </label>
-            <input type="text" id="input-modal-reset-confirm" class="clg-input" placeholder="Escribe RESET aquí" autocomplete="off" style="font-family: monospace; letter-spacing: 2px; text-transform: uppercase;">
-          </div>
-
-          <div style="display: flex; justify-content: flex-end; gap: 10px;">
-            <button type="button" class="clg-btn clg-btn-ghost" id="btn-modal-cancel-reset">Cancelar</button>
-            <button type="button" class="clg-btn clg-btn-danger" id="btn-modal-execute-reset" disabled style="opacity: 0.5; cursor: not-allowed;">
-              <i class="fas fa-trash-can"></i><span>Ejecutar Hard Reset Seguro</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    `;
-
-    const btnBackup = qs('#btn-modal-backup-now', modalHost);
-    const backupStatus = qs('#modal-backup-status', modalHost);
-    const inputConfirm = qs('#input-modal-reset-confirm', modalHost);
-    const btnExecute = qs('#btn-modal-execute-reset', modalHost);
-    const btnCancel = qs('#btn-modal-cancel-reset', modalHost);
-
-    const closeModal = () => modalHost.remove();
-    btnCancel?.addEventListener('click', closeModal);
-
-    btnBackup?.addEventListener('click', async () => {
-      btnBackup.disabled = true;
-      btnBackup.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Generando respaldo...';
-      try {
-        const data = await exportFirestoreBackup();
-        downloadBackupJSON(data, `clgestion-backup-pre-reset-${new Date().toISOString().slice(0, 10)}.json`);
-        backupDownloaded = true;
-        backupStatus.style.display = 'block';
-        showToast('Respaldo generado y descargado exitosamente.', 'success');
-      } catch (err) {
-        showToast('Error generando respaldo: ' + err.message, 'danger');
-      } finally {
-        btnBackup.disabled = false;
-        btnBackup.innerHTML = '<i class="fas fa-circle-check"></i><span>Respaldo Descargado</span>';
-      }
-    });
-
-    inputConfirm?.addEventListener('input', () => {
-      const match = inputConfirm.value.trim() === 'RESET';
-      btnExecute.disabled = !match;
-      btnExecute.style.opacity = match ? '1' : '0.5';
-      btnExecute.style.cursor = match ? 'pointer' : 'not-allowed';
-    });
-
-    btnExecute?.addEventListener('click', async () => {
-      if (inputConfirm.value.trim() !== 'RESET') return;
-      btnExecute.disabled = true;
-      btnExecute.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Restableciendo base de datos...';
-      try {
-        await hardResetFactoryData(actor);
-        closeModal();
-        showToast('¡Sistema restablecido a datos de fábrica con éxito!', 'success');
-        setTimeout(() => window.location.reload(), 1200);
-      } catch (err) {
-        showToast(err.message || 'Error durante el restablecimiento.', 'danger');
-        btnExecute.disabled = false;
-        btnExecute.innerHTML = '<i class="fas fa-trash-can"></i> Ejecutar Hard Reset Seguro';
-      }
     });
   }
 

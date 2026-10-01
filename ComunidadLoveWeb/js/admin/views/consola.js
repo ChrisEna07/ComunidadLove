@@ -2,18 +2,150 @@
    VISTA: CONSOLA DE DIAGNÓSTICO EN TIEMPO REAL (Exclusiva Super Admin)
    --------------------------------------------------------------------------
    Visor interactivo de eventos, excepciones y monitor de latencia Firestore.
+   Incluye diagnóstico explicativo con causas probables, sugerencias,
+   categorización de origen y botón directo de Restablecimiento de Fábrica.
    ========================================================================== */
 
 import { getLogs, clearLogs, subscribeLogs, checkSystemStatus, logDiagnostic } from '../../lib/logger.js';
 import { escapeHTML, qs, qsa, showToast } from '../../lib/dom.js';
-import { pageHeader, statCard, tag } from '../ui.js';
+import { pageHeader } from '../ui.js';
+import { getState } from '../store.js';
+import { openHardResetModal } from '../hard-reset-modal.js';
+
+export function analyzeDiagnosticLog(item) {
+  const msg = String(item.message || '');
+  const stack = String(item.stack || '');
+  const mod = String(item.module || '');
+  const combined = `${msg} ${stack} ${mod}`.toLowerCase();
+
+  // 1. Prueba sintética
+  if (mod.toLowerCase().includes('testrunner') || combined.includes('sintético') || combined.includes('test error')) {
+    return {
+      category: 'Prueba Sintética',
+      tagColor: '#c084fc',
+      tagBg: 'rgba(192, 132, 252, 0.15)',
+      icon: 'fa-vial',
+      cause: 'Prueba manual disparada por el Super Admin para verificar el interceptor.',
+      solution: 'El sistema de captura y registro opera con total normalidad.'
+    };
+  }
+
+  // 2. Permisos y Reglas Firestore
+  if (
+    combined.includes('permission-denied') ||
+    combined.includes('insufficient permissions') ||
+    combined.includes('permission denied') ||
+    combined.includes('permisos') ||
+    combined.includes('missing or insufficient')
+  ) {
+    return {
+      category: 'Firestore Permisos',
+      tagColor: '#f43f5e',
+      tagBg: 'rgba(244, 63, 94, 0.15)',
+      icon: 'fa-shield-halved',
+      cause: 'Intento de lectura/escritura bloqueado por las reglas de seguridad de Firestore (firestore.rules).',
+      solution: 'Verifica los permisos asignados a tu rol de usuario en la base de datos o que tu sesión de Authentication no haya expirado.'
+    };
+  }
+
+  // 3. Red y Conectividad
+  if (
+    combined.includes('network') ||
+    combined.includes('offline') ||
+    combined.includes('timeout') ||
+    combined.includes('unavailable') ||
+    combined.includes('failed to fetch') ||
+    combined.includes('sin red')
+  ) {
+    return {
+      category: 'Red / Conectividad',
+      tagColor: '#fbbf24',
+      tagBg: 'rgba(251, 191, 36, 0.15)',
+      icon: 'fa-wifi',
+      cause: 'Interrupción o alta latencia al comunicar con los servidores de Firebase / CDN.',
+      solution: 'Comprueba la conexión a internet. La aplicación cuenta con persistencia local IndexedDB para seguir funcionando.'
+    };
+  }
+
+  // 4. Carga de Assets 404
+  if (
+    combined.includes('404') ||
+    combined.includes('failed to load resource') ||
+    combined.includes('not found') ||
+    combined.includes('err_name_not_resolved') ||
+    combined.includes('net::err_file_not_found')
+  ) {
+    return {
+      category: 'Carga de Assets 404',
+      tagColor: '#fb923c',
+      tagBg: 'rgba(251, 146, 60, 0.15)',
+      icon: 'fa-file-circle-xmark',
+      cause: 'El navegador intentó descargar una imagen, CSS o recurso estático inexistente (HTTP 404).',
+      solution: 'Comprueba la ruta física en la carpeta /Assets o verifica que el enlace público/Google Drive sea accesible.'
+    };
+  }
+
+  // 5. Sintaxis y Excepción de Ejecución JS
+  if (
+    combined.includes('syntaxerror') ||
+    combined.includes('referenceerror') ||
+    combined.includes('typeerror') ||
+    combined.includes('rangeerror') ||
+    combined.includes('is not defined') ||
+    combined.includes('cannot read property') ||
+    combined.includes('unexpected token')
+  ) {
+    return {
+      category: 'Sintaxis / Error JS',
+      tagColor: '#ef4444',
+      tagBg: 'rgba(239, 68, 68, 0.15)',
+      icon: 'fa-code',
+      cause: 'Excepción de ejecución en el código de la aplicación cliente (variable no definida o tipo inválido).',
+      solution: 'Expande el "Stack trace" para localizar el archivo fuente y el número exacto de línea donde ocurrió la falla.'
+    };
+  }
+
+  // 6. Por defecto según nivel
+  if (item.level === 'error') {
+    return {
+      category: 'Excepción Sistema',
+      tagColor: '#f87171',
+      tagBg: 'rgba(248, 113, 113, 0.15)',
+      icon: 'fa-triangle-exclamation',
+      cause: 'Excepción no clasificada registrada durante la ejecución.',
+      solution: 'Inspecciona los detalles técnicos y el stack trace para mayor contexto.'
+    };
+  }
+
+  if (item.level === 'warn') {
+    return {
+      category: 'Aviso del Sistema',
+      tagColor: '#facc15',
+      tagBg: 'rgba(250, 204, 21, 0.15)',
+      icon: 'fa-circle-exclamation',
+      cause: 'Advertencia detectada por un servicio o interceptor.',
+      solution: 'Monitorea el comportamiento para asegurar que no degrade la experiencia de usuario.'
+    };
+  }
+
+  return {
+    category: 'Diagnóstico Info',
+    tagColor: '#38bdf8',
+    tagBg: 'rgba(56, 189, 248, 0.15)',
+    icon: 'fa-circle-info',
+    cause: 'Registro informativo del sistema.',
+    solution: null
+  };
+}
 
 export function renderConsola(container) {
   let filterLevel = 'all';
-  let filterQuery = '';
   let autoScroll = true;
   let currentStatus = { status: 'checking', label: 'Verificando…', icon: 'fa-circle-notch', latency: null, tone: 'neutral' };
   let statusInterval = null;
+
+  const actor = getState().profile;
+  const isSuperAdmin = actor?.role === 'superadmin' || !actor || actor.email === 'christianromerox@gmail.com';
 
   container.innerHTML = `
     <div class="clg-view clg-view-consola">
@@ -27,6 +159,15 @@ export function renderConsola(container) {
           <button type="button" class="clg-btn clg-btn-ghost clg-btn-sm" id="btn-test-error" title="Genera un error sintético para validar la captura">
             <i class="fas fa-bug"></i><span>Test Error</span>
           </button>
+          ${
+            isSuperAdmin
+              ? `
+              <button type="button" class="clg-btn clg-btn-danger clg-btn-sm" id="btn-consola-hard-reset" title="Restablecer base de datos a estado de fábrica con respaldo de seguridad">
+                <i class="fas fa-triangle-exclamation"></i><span>Restablecer Datos de Fábrica</span>
+              </button>
+            `
+              : ''
+          }
         `
       })}
 
@@ -109,7 +250,7 @@ export function renderConsola(container) {
 
         <!-- Terminal Footer -->
         <div style="background: #111827; padding: 8px 16px; border-top: 1px solid #1f2937; display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: #64748b;">
-          <div><i class="fas fa-circle" style="color: #10b981; font-size: 0.55rem; vertical-align: middle;"></i> Interceptores de ventana y promesas activos.</div>
+          <div><i class="fas fa-circle" style="color: #10b981; font-size: 0.55rem; vertical-align: middle;"></i> Interceptores de ventana y promesas activos con diagnóstico inteligente.</div>
           <label style="cursor: pointer; display: flex; align-items: center; gap: 6px;">
             <input type="checkbox" id="check-autoscroll" checked>
             <span>Auto-scroll</span>
@@ -137,12 +278,12 @@ export function renderConsola(container) {
   }
 
   function renderStream(logs) {
-    const totalErrors = logs.filter(l => l.level === 'error').length;
+    const totalErrors = logs.filter((l) => l.level === 'error').length;
     if (errorCountVal) errorCountVal.textContent = String(totalErrors);
 
     let filtered = logs;
     if (filterLevel !== 'all') {
-      filtered = filtered.filter(l => l.level === filterLevel);
+      filtered = filtered.filter((l) => l.level === filterLevel);
     }
 
     if (!filtered.length) {
@@ -155,27 +296,57 @@ export function renderConsola(container) {
       return;
     }
 
-    streamHost.innerHTML = filtered.map((item, idx) => {
-      const isErr = item.level === 'error';
-      const isWarn = item.level === 'warn';
-      const levelColor = isErr ? '#ef4444' : (isWarn ? '#f59e0b' : '#38bdf8');
-      const levelBadge = isErr ? '[ERROR]' : (isWarn ? '[WARN] ' : '[INFO] ');
+    streamHost.innerHTML = filtered
+      .map((item, idx) => {
+        const isErr = item.level === 'error';
+        const isWarn = item.level === 'warn';
+        const levelColor = isErr ? '#ef4444' : (isWarn ? '#f59e0b' : '#38bdf8');
+        const levelBadge = isErr ? '[ERROR]' : (isWarn ? '[WARN] ' : '[INFO] ');
+        const analysis = analyzeDiagnosticLog(item);
 
-      return `
-        <div class="clg-log-row" style="padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.04); display: flex; flex-direction: column; gap: 3px;" data-log-id="${item.id}">
-          <div style="display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap;">
+        return `
+        <div class="clg-log-row" style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; gap: 6px;" data-log-id="${item.id}">
+          <!-- Encabezado de Evento -->
+          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
             <span style="color: #64748b; font-size: 0.76rem;">${escapeHTML(item.timeFormatted || item.timestamp)}</span>
-            <span style="color: ${levelColor}; font-weight: 700;">${levelBadge}</span>
-            <span style="color: #a855f7; font-weight: 600;">[${escapeHTML(item.module || 'App')}]</span>
-            <span style="color: #f1f5f9; flex: 1; word-break: break-word;">${escapeHTML(item.message)}</span>
-            ${item.stack ? `<button type="button" class="btn-toggle-stack" data-idx="${idx}" style="background: transparent; border: none; color: #38bdf8; cursor: pointer; font-size: 0.74rem; text-decoration: underline;">Stack trace</button>` : ''}
+            <span style="color: ${levelColor}; font-weight: 700; font-size: 0.78rem;">${levelBadge}</span>
+            
+            <span style="display: inline-flex; align-items: center; gap: 5px; background: ${analysis.tagBg}; color: ${analysis.tagColor}; border: 1px solid ${analysis.tagColor}40; border-radius: 4px; padding: 2px 7px; font-size: 0.72rem; font-weight: 600;">
+              <i class="fas ${analysis.icon}"></i> ${escapeHTML(analysis.category)}
+            </span>
+
+            <span style="color: #c084fc; font-weight: 600; font-size: 0.78rem;">[${escapeHTML(item.module || 'App')}]</span>
+            <span style="color: #f1f5f9; flex: 1; word-break: break-word; font-size: 0.82rem;">${escapeHTML(item.message)}</span>
+            
+            ${
+              item.stack
+                ? `<button type="button" class="btn-toggle-stack" data-idx="${idx}" style="background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.3); border-radius: 4px; padding: 2px 8px; color: #38bdf8; cursor: pointer; font-size: 0.72rem; font-weight: 600;"><i class="fas fa-layer-group"></i> Stack trace</button>`
+                : ''
+            }
           </div>
-          ${item.stack ? `
-            <pre class="clg-log-stack" id="stack-${idx}" style="display: none; margin: 6px 0 2px 24px; padding: 10px; background: #040711; border-left: 3px solid ${levelColor}; border-radius: 4px; color: #94a3b8; font-size: 0.74rem; overflow-x: auto; white-space: pre-wrap;">${escapeHTML(item.stack)}</pre>
-          ` : ''}
+
+          <!-- Caja de Diagnóstico Inteligente (Causa Probable & Sugerencia) -->
+          <div style="background: rgba(255,255,255,0.02); border-left: 3px solid ${analysis.tagColor}; padding: 7px 12px; border-radius: 4px; margin-left: 8px; font-size: 0.76rem; color: #cbd5e1; line-height: 1.5;">
+            <div><strong style="color: ${analysis.tagColor};">Causa probable:</strong> ${escapeHTML(analysis.cause)}</div>
+            ${
+              analysis.solution
+                ? `<div style="margin-top: 3px; color: #94a3b8;"><strong style="color: #f1f5f9;"><i class="fas fa-lightbulb" style="color: #fbbf24;"></i> Sugerencia:</strong> ${escapeHTML(analysis.solution)}</div>`
+                : ''
+            }
+          </div>
+
+          <!-- Stack Trace Técnico Colapsable -->
+          ${
+            item.stack
+              ? `
+            <pre class="clg-log-stack" id="stack-${idx}" style="display: none; margin: 6px 0 2px 8px; padding: 12px; background: #040711; border-left: 3px solid ${levelColor}; border-radius: 6px; color: #94a3b8; font-size: 0.74rem; overflow-x: auto; white-space: pre-wrap; font-family: monospace;">${escapeHTML(item.stack)}</pre>
+          `
+              : ''
+          }
         </div>
       `;
-    }).join('');
+      })
+      .join('');
 
     if (autoScroll && checkAutoScroll?.checked) {
       streamHost.scrollTop = streamHost.scrollHeight;
@@ -191,13 +362,15 @@ export function renderConsola(container) {
     if (!pre) return;
     const isHidden = pre.style.display === 'none';
     pre.style.display = isHidden ? 'block' : 'none';
-    btn.textContent = isHidden ? 'Ocultar stack' : 'Stack trace';
+    btn.innerHTML = isHidden
+      ? '<i class="fas fa-chevron-up"></i> Ocultar stack'
+      : '<i class="fas fa-layer-group"></i> Stack trace';
   });
 
   // Filtros
   qsa('[data-filter-level]', container).forEach((btn) => {
     btn.addEventListener('click', () => {
-      qsa('[data-filter-level]', container).forEach(b => b.classList.remove('is-active'));
+      qsa('[data-filter-level]', container).forEach((b) => b.classList.remove('is-active'));
       btn.classList.add('is-active');
       filterLevel = btn.dataset.filterLevel;
       renderStream(getLogs());
@@ -235,6 +408,11 @@ export function renderConsola(container) {
       stack: 'Error: Test Error\n    at renderConsola (consola.js:42:15)\n    at router.js:88'
     });
     showToast('Error sintético registrado en consola.', 'info');
+  });
+
+  // Botón Hard Reset de Fábrica (Super Admin)
+  qs('#btn-consola-hard-reset', container)?.addEventListener('click', () => {
+    openHardResetModal(actor);
   });
 
   // Medir Latencia Manual

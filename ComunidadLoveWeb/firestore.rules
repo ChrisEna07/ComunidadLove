@@ -1,7 +1,7 @@
 rules_version = '2';
 
 /* ==========================================================================
-   FIRESTORE RULES - COMUNIDAD LOVE / CLGESTIÓN (DEFINITIVO)
+   FIRESTORE RULES - COMUNIDAD LOVE / CLGESTIÓN (ACTUALIZADAS Y DEFINITIVAS)
    Deploy: Firebase Console -> Firestore Database -> pestaña Reglas
    ========================================================================== */
 
@@ -9,7 +9,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /* ------------------------------------------------------------------
-       HELPERS DE PERFIL
+       HELPERS DE PERFIL Y AUTENTICACIÓN
        ------------------------------------------------------------------ */
     function userDoc() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
@@ -96,7 +96,10 @@ service cloud.firestore {
       ]);
     }
 
-    function validImageField(value) {
+    /* ------------------------------------------------------------------
+       VALIDACIÓN DE IMÁGENES (INDIVIDUAL Y LISTA DE COLLAGE)
+       ------------------------------------------------------------------ */
+    function validSingleImage(value) {
       return value is string && (
         value.size() == 0
         || (value.size() <= 204800 && value.matches('^data:image/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=]+$'))
@@ -106,6 +109,11 @@ service cloud.firestore {
           || value.matches('^/[^ ]+$')
         ))
       );
+    }
+
+    function validImageField(value) {
+      return validSingleImage(value)
+        || (value is list && value.size() <= 6);
     }
 
     function imageUnchanged(field) {
@@ -207,10 +215,10 @@ service cloud.firestore {
     }
 
     /* ------------------------------------------------------------------
-       GESTIÓN DE MIEMBROS
+       GESTIÓN DE MIEMBROS (LECTURA PÚBLICA PARA CUMPLEAÑOS COMUNITARIOS)
        ------------------------------------------------------------------ */
     match /members/{memberId} {
-      allow read: if true;
+      allow read: if can('members.read') || resource.data.get('status', 'activo') == 'activo';
       allow create, update: if can('members.write') && writesValidImage('photoUrl');
       allow delete: if can('members.delete');
 
