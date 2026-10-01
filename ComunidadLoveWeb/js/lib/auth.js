@@ -11,7 +11,8 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged,
   sendPasswordResetEmail,
-  updateProfile
+  updateProfile,
+  updatePassword as fbUpdatePassword
 } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase.js';
@@ -110,6 +111,12 @@ export function updateDisplayName(displayName) {
   const user = auth?.currentUser;
   if (!user) return Promise.reject(new Error('No hay sesión activa.'));
   return updateProfile(user, { displayName });
+}
+
+export function updateUserPassword(newPassword) {
+  const user = auth?.currentUser;
+  if (!user) return Promise.reject(new Error('No hay sesión activa.'));
+  return fbUpdatePassword(user, newPassword);
 }
 
 /**

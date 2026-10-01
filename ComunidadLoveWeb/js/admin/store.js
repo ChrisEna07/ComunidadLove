@@ -78,6 +78,21 @@ export function setSession(session, profile) {
   emit(['session', 'profile']);
 }
 
+export function removeLocalEntity(key, id) {
+  if (Array.isArray(state[key])) {
+    state[key] = state[key].filter((item) => item.id !== id);
+    if (key === 'products') {
+      state.activeProducts = (state.activeProducts || []).filter((item) => item.id !== id);
+      emit(['products', 'activeProducts']);
+    } else if (key === 'events') {
+      state.activeEvents = (state.activeEvents || []).filter((item) => item.id !== id);
+      emit(['events', 'activeEvents']);
+    } else {
+      emit([key]);
+    }
+  }
+}
+
 /**
  * Arranca los listeners de datos. Es idempotente.
  *

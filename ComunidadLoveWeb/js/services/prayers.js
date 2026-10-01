@@ -30,6 +30,7 @@ import {
   query,
   serverTimestamp,
   setDoc,
+  Timestamp,
   updateDoc,
   where
 } from 'firebase/firestore';
@@ -325,7 +326,7 @@ export async function addPrayerReply(prayerId, { text, role, authorName }) {
     text: cleanText,
     authorName: String(authorName || 'Equipo Love').trim().slice(0, 60),
     badgeLabel: badge.label,
-    createdAt: serverTimestamp()
+    createdAt: Timestamp.now()
   };
 
   try {

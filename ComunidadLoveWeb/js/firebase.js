@@ -9,7 +9,7 @@
    ========================================================================== */
 
 import { initializeApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 
 let firebaseConfig = null;
@@ -77,6 +77,16 @@ if (firebaseReady && firebaseConfig) {
     app = initializeApp(firebaseConfig);
     db = getFirestore(app);
     auth = getAuth(app);
+
+    if (typeof window !== 'undefined') {
+      enableIndexedDbPersistence(db).catch((err) => {
+        if (err.code === 'failed-precondition') {
+          console.info('[CL] Persistencia en múltiples pestañas activa en otra ventana.');
+        } else if (err.code === 'unimplemented') {
+          console.info('[CL] El navegador no soporta persistencia IndexedDB.');
+        }
+      });
+    }
   } catch (error) {
     console.error('[CL] No se pudo inicializar Firebase:', error);
   }

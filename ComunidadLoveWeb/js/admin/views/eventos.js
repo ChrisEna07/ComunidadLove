@@ -20,7 +20,7 @@ import {
 } from '../../lib/dom.js';
 import { formatDateTime, daysUntil } from '../../lib/dates.js';
 import { bindImageInputs, imageInput, prepareImageValue } from '../image-input.js';
-import { subscribe, getState } from '../store.js';
+import { subscribe, getState, removeLocalEntity } from '../store.js';
 import { pageHeader, card, emptyState, tag, iconButton, field, drawer, markInvalid, clearInvalid, setLoading, readForm } from '../ui.js';
 
 export function renderEventos(container) {
@@ -181,6 +181,7 @@ function bindListActions(body, container, drawerHost, state) {
       if (!ok) return;
       try {
         await deleteEvent(event.id);
+        removeLocalEntity('events', event.id);
         await logAudit({
           actor: state.profile,
           action: 'events.delete',

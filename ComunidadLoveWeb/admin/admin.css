@@ -190,7 +190,11 @@
   pointer-events: none;
   transition: var(--clg-transition);
 }
-.clg-field-icon .clg-control input { padding-left: 42px; }
+.clg-field-icon .clg-control input,
+.clg-field-icon .clg-control select,
+.clg-field-icon .clg-select {
+  padding-left: 42px !important;
+}
 .clg-field-icon .clg-control:focus-within .clg-control-icon { color: var(--clg-primary); }
 
 /* Mostrar / ocultar contraseña. */
@@ -1576,6 +1580,7 @@
     position: fixed;
     left: 0;
     top: 0;
+    z-index: 1001 !important;
     transform: translateX(-100%);
     transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
     box-shadow: var(--clg-shadow-lg);
@@ -1589,7 +1594,7 @@
     position: fixed;
     inset: 0;
     background: rgba(18, 18, 18, 0.45);
-    z-index: 55;
+    z-index: 1000 !important;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.25s ease;
@@ -1991,3 +1996,117 @@
 
 .clg-toast-danger { background: var(--clg-danger, #e53e3e); color: #fff; }
 .clg-toast-danger i { color: #fecaca; }
+
+/* --------------------------------------------------------------------------
+   LOADER CON LATIDO Y BRANDING
+   -------------------------------------------------------------------------- */
+.clg-heart-pulse-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+}
+
+.clg-heart-pulse-logo {
+  width: 68px;
+  height: 68px;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 14px rgba(255, 107, 74, 0.4));
+  animation: clgHeartPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes clgHeartPulse {
+  0% { transform: scale(1); }
+  14% { transform: scale(1.18); }
+  28% { transform: scale(1); }
+  42% { transform: scale(1.18); }
+  70% { transform: scale(1); }
+  100% { transform: scale(1); }
+}
+
+/* --------------------------------------------------------------------------
+   FIRMA / BADGE DEL DESARROLLADOR
+   -------------------------------------------------------------------------- */
+.clg-dev-credit-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin-top: 10px;
+  font-size: 0.76rem;
+  color: var(--clg-muted, #94a3b8);
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--clg-line, #e2e8f0);
+  border-radius: var(--clg-radius-md, 8px);
+  transition: all 0.2s ease;
+}
+
+.clg-dev-credit-link:hover {
+  color: var(--clg-primary, #ff6b4a);
+  border-color: rgba(255, 107, 74, 0.35);
+  background: rgba(255, 107, 74, 0.08);
+}
+
+.clg-dev-credit-link i {
+  color: var(--clg-primary, #ff6b4a);
+  font-size: 0.85rem;
+}
+
+/* --------------------------------------------------------------------------
+   PESTAÑAS DE NAVEGACIÓN (TABS)
+   -------------------------------------------------------------------------- */
+.clg-tabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 2px solid var(--clg-line, #e2e8f0);
+  margin-bottom: 20px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.clg-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--clg-muted, #64748b);
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.clg-tab:hover {
+  color: var(--clg-secondary, #1e293b);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.clg-tab.is-active {
+  color: var(--clg-primary, #ff6b4a);
+  border-bottom-color: var(--clg-primary, #ff6b4a);
+}
+
+.clg-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: 999px;
+  background: var(--clg-line, #e2e8f0);
+  color: var(--clg-text, #334155);
+}
+
+.clg-tab.is-active .clg-tab-badge {
+  background: rgba(255, 107, 74, 0.15);
+  color: var(--clg-primary, #ff6b4a);
+}

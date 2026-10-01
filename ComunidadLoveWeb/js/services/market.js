@@ -207,6 +207,7 @@ export async function setProductActive(id, isActive) {
 }
 
 export async function deleteProduct(id) {
+  if (String(id).startsWith('seed-')) return true;
   requireService(db, 'Firestore');
   try {
     await deleteDoc(doc(db, COLLECTION, id));
@@ -214,5 +215,101 @@ export async function deleteProduct(id) {
   } catch (error) {
     console.error('[CL] Error eliminando producto:', error);
     throw new Error(error.message || 'No se pudo eliminar el producto.');
+  }
+}
+
+/* --------------------------------------------------------------------------
+   SOLICITUDES Y PEDIDOS (market_orders)
+   -------------------------------------------------------------------------- */
+export async function createMarketOrder(orderData) {
+  requireService(db, 'Firestore');
+  const customerName = String(orderData.customerName || '').trim();
+  const customerPhone = String(orderData.customerPhone || '').trim();
+  if (!customerName) throw new Error('Ingresa tu nombre completo.');
+  if (!customerPhone) throw new Error('Ingresa tu número de WhatsApp o teléfono.');
+
+  const payload = {
+    customerName,
+    customerPhone,
+    productId: String(orderData.productId || ''),
+    productName: String(orderData.productName || 'Producto Love').trim(),
+    productPrice: Number(orderData.productPrice) || 0,
+    variant: String(orderData.variant || '').trim(),
+    paymentMethod: orderData.paymentMethod === 'transfer' ? 'transfer' : 'cash',
+    receiptUrl: orderData.receiptUrl ? sanitizeImageValue(orderData.receiptUrl, { field: 'comprobante de pago' }) : '',
+    notes: String(orderData.notes || '').trim(),
+    status: 'pendiente',
+    createdAt: serverTimestamp()
+  };
+
+  try {
+    const ref = await addDoc(collection(db, 'market_orders'), payload);
+    return ref.id;
+  } catch (error) {
+    console.error('[CL] Error creando pedido:', error);
+    throw new Error(error.message || 'No se pudo registrar el pedido.');
+  }
+}
+
+export function watchMarketOrders(callback, onError) {
+  try {
+    return onSnapshot(
+      query(collection(db, 'market_orders'), orderBy('createdAt', 'desc')),
+      (snapshot) => {
+        const orders = snapshot.docs.map((docSnap) => {
+          const data = docSnap.data();
+          return {
+            id: docSnap.id,
+            customerName: data.customerName || 'Sin nombre',
+            customerPhone: data.customerPhone || '',
+            productId: data.productId || '',
+            productName: data.productName || '',
+            productPrice: Number(data.productPrice) || 0,
+            variant: data.variant || '',
+            paymentMethod: data.paymentMethod || 'cash',
+            receiptUrl: data.receiptUrl || '',
+            notes: data.notes || '',
+            status: data.status || 'pendiente',
+            createdAt: toDate(data.createdAt)
+          };
+        });
+        callback(orders);
+      },
+      (error) => {
+        console.warn('[CL] Error en tiempo real de pedidos:', error);
+        if (onError) onError(error);
+        callback([]);
+      }
+    );
+  } catch (error) {
+    console.warn('[CL] No se pudo suscribir a pedidos:', error);
+    if (onError) onError(error);
+    callback([]);
+    return () => {};
+  }
+}
+
+export async function updateMarketOrderStatus(orderId, status) {
+  requireService(db, 'Firestore');
+  try {
+    await updateDoc(doc(db, 'market_orders', orderId), {
+      status,
+      updatedAt: serverTimestamp()
+    });
+    return true;
+  } catch (error) {
+    console.error('[CL] Error actualizando estado de pedido:', error);
+    throw new Error(error.message || 'No se pudo actualizar el pedido.');
+  }
+}
+
+export async function deleteMarketOrder(orderId) {
+  requireService(db, 'Firestore');
+  try {
+    await deleteDoc(doc(db, 'market_orders', orderId));
+    return true;
+  } catch (error) {
+    console.error('[CL] Error eliminando pedido:', error);
+    throw new Error(error.message || 'No se pudo eliminar el pedido.');
   }
 }

@@ -4,9 +4,11 @@
 
 import { saveSettings } from '../../services/site.js';
 import { can } from '../../lib/auth.js';
-import { escapeHTML as _escapeHTML, qs, qsa, showToast } from '../../lib/dom.js';
+import { escapeHTML as _escapeHTML, qs, qsa, showToast, confirmDialog } from '../../lib/dom.js';
 import { subscribe } from '../store.js';
 import { pageHeader, card, field, checkboxField, markInvalid, clearInvalid, setLoading, readForm } from '../ui.js';
+import { exportFirestoreBackup, downloadBackupJSON, restoreFirestoreBackup } from '../../services/backup.js';
+import { seedInitialData } from '../../services/seed.js';
 
 export function renderAjustes(container) {
   container.innerHTML = `
@@ -107,6 +109,30 @@ export function renderAjustes(container) {
           `
         })}
 
+        ${card({
+          title: 'Respaldo y Restauración de Datos (JSON / Offline-First)',
+          subtitle: 'Exporta o restaura las colecciones del sistema en tu equipo local',
+          body: `
+            <div style="display: flex; gap: 14px; flex-wrap: wrap; align-items: center;">
+              <button type="button" class="clg-btn clg-btn-secondary" id="btn-export-backup">
+                <i class="fas fa-download"></i><span>Exportar Respaldo JSON</span>
+              </button>
+
+              <label class="clg-btn clg-btn-ghost" style="cursor: pointer; margin: 0; display: inline-flex; align-items: center; gap: 8px;">
+                <i class="fas fa-upload"></i><span>Restaurar Respaldo JSON</span>
+                <input type="file" id="input-restore-backup" accept=".json" style="display: none;">
+              </label>
+
+              <button type="button" class="clg-btn clg-btn-ghost" id="btn-seed-data">
+                <i class="fas fa-seedling"></i><span>Sembrar Datos de Fábrica</span>
+              </button>
+            </div>
+            <p class="clg-hint" style="margin-top: 10px;">
+              El respaldo exporta en un archivo estructurado: configuración del sitio, eventos, catálogo de market, pedidos, avisos, peticiones y miembros.
+            </p>
+          `
+        })}
+
         <div class="clg-submit-bar clg-submit-bar-static">
           <button type="submit" class="clg-btn clg-btn-primary clg-btn-lg">
             <i class="fas fa-save"></i><span>Guardar ajustes</span>
@@ -116,6 +142,7 @@ export function renderAjustes(container) {
     `;
 
     bindHours(qs('#clg-ajustes-form', body));
+    bindBackupActions(body, state.profile);
   });
 
   function bindHours(form) {
@@ -185,6 +212,77 @@ export function renderAjustes(container) {
         markInvalid(form, error.message);
       } finally {
         setLoading(form, false);
+      }
+    });
+  }
+
+  function bindBackupActions(containerEl, actor) {
+    const btnExport = qs('#btn-export-backup', containerEl);
+    const inputRestore = qs('#input-restore-backup', containerEl);
+    const btnSeed = qs('#btn-seed-data', containerEl);
+
+    btnExport?.addEventListener('click', async () => {
+      btnExport.disabled = true;
+      showToast('Generando archivo de respaldo JSON…', 'info');
+      try {
+        const backup = await exportFirestoreBackup();
+        downloadBackupJSON(backup);
+        showToast('Respaldo descargado exitosamente.', 'success');
+      } catch (err) {
+        showToast(err.message || 'Error al exportar respaldo.', 'danger');
+      } finally {
+        btnExport.disabled = false;
+      }
+    });
+
+    inputRestore?.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const ok = await confirmDialog({
+        title: 'Restaurar respaldo JSON',
+        message: `¿Estás seguro de restaurar los datos desde "${file.name}"? Los documentos existentes se actualizarán con la información del archivo.`,
+        confirmText: 'Restaurar',
+        danger: true
+      });
+      if (!ok) {
+        e.target.value = '';
+        return;
+      }
+
+      showToast('Procesando restauración de base de datos…', 'info');
+      try {
+        const text = await file.text();
+        const json = JSON.parse(text);
+        const { totalRestored } = await restoreFirestoreBackup(json);
+        showToast(`Restauración completada: ${totalRestored} documentos importados.`, 'success');
+      } catch (err) {
+        showToast(err.message || 'Error al restaurar los datos.', 'danger');
+      } finally {
+        e.target.value = '';
+      }
+    });
+
+    btnSeed?.addEventListener('click', async () => {
+      const ok = await confirmDialog({
+        title: 'Sembrar datos iniciales',
+        message: '¿Deseas verificar y crear los datos iniciales de fábrica para los módulos vacíos?',
+        confirmText: 'Sembrar datos',
+        danger: false
+      });
+      if (!ok) return;
+
+      btnSeed.disabled = true;
+      try {
+        const result = await seedInitialData(actor);
+        if (result.alreadySeeded) {
+          showToast('Las colecciones ya contienen datos.', 'info');
+        } else {
+          showToast(`Datos sembrados: ${result.productsCount} productos, ${result.eventsCount} eventos.`, 'success');
+        }
+      } catch (err) {
+        showToast(err.message || 'Error al sembrar datos.', 'danger');
+      } finally {
+        btnSeed.disabled = false;
       }
     });
   }

@@ -200,12 +200,17 @@ img {
    ========================================================================== */
 
 header {
-  position: fixed;
+  position: sticky;
   top: 0;
   left: 0;
   width: 100%;
   z-index: 1000;
-  padding: 20px 0;
+  padding: 16px 0;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-sm);
   transition: var(--transition-smooth);
 }
 
@@ -382,12 +387,12 @@ header.scrolled .logo img {
    ========================================================================== */
 
 .hero {
-  min-height: 100vh;
+  min-height: calc(100vh - 75px);
   display: flex;
   align-items: center;
   position: relative;
   background: linear-gradient(135deg, rgba(253, 251, 247, 0.92) 0%, rgba(255, 254, 254, 0.88) 100%), url('./Assets/portada.jpg') no-repeat center center / cover;
-  padding-top: 120px;
+  padding-top: 40px;
 }
 
 .hero-bg-shapes {
@@ -2587,6 +2592,9 @@ section:not(.hero).reveal-visible {
   font-family: var(--font-body);
   font-size: 0.9rem;
   font-weight: 500;
+  position: relative;
+  z-index: 1002;
+  width: 100%;
 }
 .cl-banner[hidden] {
   display: none;
@@ -2602,13 +2610,31 @@ section:not(.hero).reveal-visible {
 .cl-banner-inner {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 0;
+  gap: 14px;
+  padding: 10px 0;
+  overflow: hidden;
 }
-.cl-banner-inner p {
+.cl-banner-content {
   flex: 1;
-  margin: 0;
-  line-height: 1.4;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+.cl-banner-text {
+  display: inline-block;
+  white-space: nowrap;
+  animation: clBannerMarquee 28s linear infinite;
+  padding-left: 20px;
+}
+.cl-banner-content:hover .cl-banner-text,
+.cl-banner-text:hover {
+  animation-play-state: paused;
+}
+@keyframes clBannerMarquee {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
 }
 .cl-banner-close {
   background: rgba(255, 255, 255, 0.15);
@@ -2626,6 +2652,29 @@ section:not(.hero).reveal-visible {
 }
 .cl-banner-close:hover {
   background: rgba(255, 255, 255, 0.32);
+}
+
+/* Firma / Portafolio desarrollador */
+.dev-signature {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 700;
+  padding: 3px 10px;
+  margin-left: 6px;
+  border-radius: 6px;
+  background: rgba(255, 107, 74, 0.12);
+  border: 1px solid rgba(255, 107, 74, 0.28);
+  transition: var(--transition-smooth);
+}
+.dev-signature:hover {
+  background: var(--primary);
+  color: #fff !important;
+  border-color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(255, 107, 74, 0.4);
 }
 
 /* --------------------------------------------------------------------------

@@ -184,6 +184,7 @@ export async function setEventActive(id, isActive, authorName) {
 }
 
 export async function deleteEvent(id) {
+  if (String(id).startsWith('seed-')) return true;
   requireService(db, 'Firestore');
   try {
     await deleteDoc(doc(db, COLLECTION, id));

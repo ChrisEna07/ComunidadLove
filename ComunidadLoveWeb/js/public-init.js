@@ -9,11 +9,11 @@
    ========================================================================== */
 
 import { firebaseReady, configError } from './firebase.js';
-import { installImageFallback } from './lib/image.js';
+import { installImageFallback, compressFileToDataUrl } from './lib/image.js';
 import { watchSettings } from './services/site.js';
 import { watchEvents, CATEGORY_LABELS } from './services/events.js';
 import { watchAnnouncements, isAnnouncementVisible } from './services/announcements.js';
-import { watchActiveProducts, formatPriceCOP } from './services/market.js';
+import { watchActiveProducts, formatPriceCOP, createMarketOrder } from './services/market.js';
 import {
   watchPublicPrayers,
   createPrayer,
@@ -73,7 +73,9 @@ function renderBannerAlert(settings) {
   host.innerHTML = `
     <div class="container cl-banner-inner">
       <i class="fas ${icon}" aria-hidden="true"></i>
-      <p>${escapeHTML(alert.message)}</p>
+      <div class="cl-banner-content">
+        <span class="cl-banner-text">${escapeHTML(alert.message)}</span>
+      </div>
       <button type="button" class="cl-banner-close" aria-label="Cerrar aviso">
         <i class="fas fa-xmark" aria-hidden="true"></i>
       </button>
@@ -325,14 +327,219 @@ function renderMarket(products) {
                   ? `<div class="product-stock-low">Últimas ${product.stock}</div>`
                   : ''
             }
-            <div class="product-actions">
-              <button class="btn btn-primary btn-view-details" style="width: 100%;">Detalles <i class="fas fa-eye"></i></button>
+            <div class="product-actions" style="display: flex; gap: 8px;">
+              <button class="btn btn-outline btn-view-details" style="flex: 1;" type="button">Detalles <i class="fas fa-eye"></i></button>
+              <button class="btn btn-primary btn-order-product" style="flex: 1;" type="button" data-product-id="${escapeHTML(product.id)}" data-product-name="${escapeHTML(product.name)}" data-product-price="${product.price}">¡Lo quiero! <i class="fas fa-bag-shopping"></i></button>
             </div>
           </div>
         </div>
       `;
     })
     .join('');
+}
+
+/* --------------------------------------------------------------------------
+   SOLICITUD DE PEDIDOS (Love Market - "¡Lo quiero!")
+   -------------------------------------------------------------------------- */
+function initPublicMarketOrders() {
+  const modal = qs('#market-modal');
+  if (!modal) return;
+
+  const detailsView = qs('#market-modal-info');
+  const detailsImg = qs('#modal-product-img-wrapper');
+  const formWrapper = qs('#market-order-form-wrapper');
+  const orderForm = qs('#cl-public-order-form');
+  const btnStartOrder = qs('#btn-start-order');
+  const btnOrderBack = qs('#btn-order-back');
+  const paymentSelect = qs('#order-payment-method');
+  const transferBox = qs('#transfer-instructions-box');
+  const receiptFileInput = qs('#order-receipt-file');
+  const receiptUrlInput = qs('#order-receipt-url');
+  const receiptPreviewBox = qs('#receipt-preview-box');
+  const receiptPreviewImg = qs('#receipt-preview-img');
+  const receiptStatusText = qs('#receipt-status-text');
+  const feedbackBox = qs('#order-form-feedback');
+  const successScreen = qs('#order-success-screen');
+  const whatsappChatBtn = qs('#order-whatsapp-chat-btn');
+
+  function showDetails() {
+    if (formWrapper) formWrapper.style.display = 'none';
+    if (successScreen) successScreen.style.display = 'none';
+    if (detailsView) detailsView.style.display = 'block';
+    if (detailsImg) detailsImg.style.display = 'block';
+  }
+
+  function showOrderForm(prodId, prodName, prodPrice) {
+    if (detailsView) detailsView.style.display = 'none';
+    if (detailsImg) detailsImg.style.display = 'none';
+    if (successScreen) successScreen.style.display = 'none';
+    if (formWrapper) formWrapper.style.display = 'block';
+
+    if (orderForm) {
+      orderForm.style.display = 'block';
+      qs('#order-product-id', orderForm).value = prodId || '';
+      qs('#order-product-name', orderForm).value = prodName || '';
+      qs('#order-product-price', orderForm).value = prodPrice || '0';
+    }
+  }
+
+  btnStartOrder?.addEventListener('click', () => {
+    const title = qs('.modal-product-title', modal)?.textContent || 'Producto';
+    const priceText = qs('.modal-product-price', modal)?.textContent || '';
+    const numericPrice = Number(priceText.replace(/\D/g, '')) || 0;
+    showOrderForm('item', title, numericPrice);
+  });
+
+  btnOrderBack?.addEventListener('click', showDetails);
+
+  // Delegado: botón directo "¡Lo quiero!" en cualquier tarjeta
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.btn-order-product');
+    if (!btn) return;
+    const card = btn.closest('.product-card');
+    const prodId = btn.dataset.productId || 'seed-item';
+    const prodName = btn.dataset.productName || card?.querySelector('.product-title')?.textContent.trim() || 'Producto Love';
+    const prodPrice = btn.dataset.productPrice || card?.querySelector('.product-price')?.textContent.replace(/\D/g, '') || 0;
+    const img = card?.querySelector('.product-image img');
+
+    const modalImg = modal.querySelector('.modal-product-img');
+    const modalTitle = modal.querySelector('.modal-product-title');
+    const modalPrice = modal.querySelector('.modal-product-price');
+    const modalDesc = modal.querySelector('.modal-product-desc');
+
+    if (modalImg && img) modalImg.src = img.src;
+    if (modalTitle) modalTitle.textContent = prodName;
+    if (modalPrice) modalPrice.textContent = `$${Number(prodPrice).toLocaleString('es-CO')} COP`;
+    if (modalDesc && card) modalDesc.textContent = card.getAttribute('data-desc') || '';
+
+    showOrderForm(prodId, prodName, prodPrice);
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  });
+
+  // Toggle de instrucciones de transferencia
+  paymentSelect?.addEventListener('change', () => {
+    if (transferBox) {
+      transferBox.style.display = paymentSelect.value === 'transfer' ? 'block' : 'none';
+    }
+  });
+
+  // Compresión en cliente del comprobante < 200 KB
+  receiptFileInput?.addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (receiptStatusText) receiptStatusText.textContent = 'Comprimiendo imagen…';
+    if (receiptPreviewBox) receiptPreviewBox.style.display = 'flex';
+
+    try {
+      const result = await compressFileToDataUrl(file);
+      if (receiptUrlInput) receiptUrlInput.value = result.dataUrl;
+      if (receiptPreviewImg) receiptPreviewImg.src = result.dataUrl;
+      if (receiptStatusText) {
+        receiptStatusText.textContent = `✓ Lista (${Math.round(result.bytes / 1024)} KB)`;
+        receiptStatusText.style.color = '#16a34a';
+      }
+    } catch (err) {
+      console.warn('[CL] Error al comprimir comprobante:', err);
+      if (receiptStatusText) {
+        receiptStatusText.textContent = err.message || 'No se pudo procesar la imagen.';
+        receiptStatusText.style.color = '#dc2626';
+      }
+      e.target.value = '';
+    }
+  });
+
+  // Envío del formulario de pedido
+  orderForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (feedbackBox) {
+      feedbackBox.style.display = 'none';
+      feedbackBox.textContent = '';
+    }
+
+    const name = qs('#order-customer-name', orderForm).value.trim();
+    const phone = qs('#order-customer-phone', orderForm).value.trim();
+    const prodId = qs('#order-product-id', orderForm).value;
+    const prodName = qs('#order-product-name', orderForm).value;
+    const prodPrice = Number(qs('#order-product-price', orderForm).value) || 0;
+    const variant = qs('#order-variant', orderForm).value;
+    const paymentMethod = qs('#order-payment-method', orderForm).value;
+    const receiptUrl = qs('#order-receipt-url', orderForm).value;
+    const notes = qs('#order-notes', orderForm).value.trim();
+
+    if (!name || name.length < 3) {
+      showOrderError('Por favor ingresa tu nombre completo.');
+      return;
+    }
+    if (!phone || phone.replace(/\D/g, '').length < 7) {
+      showOrderError('Por favor ingresa un número de teléfono o WhatsApp válido.');
+      return;
+    }
+
+    const submitBtn = qs('#btn-submit-order', orderForm);
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Registrando pedido…';
+    }
+
+    try {
+      await createMarketOrder({
+        customerName: name,
+        customerPhone: phone,
+        productId: prodId,
+        productName: prodName,
+        productPrice: prodPrice,
+        variant,
+        paymentMethod,
+        receiptUrl,
+        notes
+      });
+
+      orderForm.style.display = 'none';
+      if (successScreen) {
+        successScreen.style.display = 'block';
+        const msg = qs('#order-success-msg', successScreen);
+        if (msg) {
+          msg.textContent = `¡Muchas gracias, ${name}! Tu solicitud de ${prodName} (${variant}) ha sido registrada. Nos pondremos en contacto contigo al ${phone}.`;
+        }
+      }
+
+      if (whatsappChatBtn) {
+        const text = encodeURIComponent(
+          `¡Hola Comunidad Love! Acabo de solicitar un pedido en su tienda virtual:\n\n` +
+          `• Producto: *${prodName}*\n` +
+          `• Variante / Talla: ${variant}\n` +
+          `• Total: $${prodPrice.toLocaleString('es-CO')} COP\n` +
+          `• Pago: ${paymentMethod === 'transfer' ? 'Transferencia bancaria' : 'Efectivo en sede'}\n` +
+          `• A nombre de: ${name} (${phone})\n\n` +
+          `Quedo atento a la confirmación y entrega. ¡Bendiciones!`
+        );
+        whatsappChatBtn.href = `https://wa.me/573001234567?text=${text}`;
+      }
+    } catch (err) {
+      showOrderError(err.message || 'No se pudo enviar el pedido. Por favor intenta de nuevo.');
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-check-circle"></i> Confirmar Solicitud de Pedido';
+      }
+    }
+  });
+
+  function showOrderError(msg) {
+    if (feedbackBox) {
+      feedbackBox.style.display = 'block';
+      feedbackBox.style.background = '#fef2f2';
+      feedbackBox.style.color = '#dc2626';
+      feedbackBox.style.border = '1px solid #fecaca';
+      feedbackBox.textContent = msg;
+    }
+  }
+
+  modal.querySelector('.modal-market-close')?.addEventListener('click', () => {
+    setTimeout(showDetails, 300);
+  });
 }
 
 /* --------------------------------------------------------------------------
@@ -550,6 +757,8 @@ function bindPublicInteractions() {
       btn.disabled = false;
     }
   });
+
+  initPublicMarketOrders();
 }
 
 /* --------------------------------------------------------------------------

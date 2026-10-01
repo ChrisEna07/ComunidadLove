@@ -49,6 +49,23 @@ export function renderOracion(container) {
       icon: 'fa-hands-praying'
     })}
     <div class="clg-stats-grid" id="clg-prayers-stats"></div>
+    <div class="clg-tabs" id="clg-prayers-tabs" role="tablist">
+      <button type="button" class="clg-tab is-active" data-tab-type="all">
+        <i class="fas fa-list"></i>
+        <span>Todas</span>
+        <span class="clg-tab-badge" id="clg-tab-count-all">0</span>
+      </button>
+      <button type="button" class="clg-tab" data-tab-type="peticion">
+        <i class="fas fa-hands-praying"></i>
+        <span>Peticiones de Oración</span>
+        <span class="clg-tab-badge" id="clg-tab-count-peticion">0</span>
+      </button>
+      <button type="button" class="clg-tab" data-tab-type="inquietud">
+        <i class="fas fa-circle-question"></i>
+        <span>Inquietudes y Preguntas</span>
+        <span class="clg-tab-badge" id="clg-tab-count-inquietud">0</span>
+      </button>
+    </div>
     <div class="clg-toolbar" id="clg-prayers-toolbar"></div>
     <div id="clg-prayers-body">
       <div class="clg-table-skeleton">
@@ -62,8 +79,18 @@ export function renderOracion(container) {
   const toolbar = qs('#clg-prayers-toolbar', container);
   const body = qs('#clg-prayers-body', container);
   const drawerHost = qs('#clg-prayers-drawer', container);
+  const tabsContainer = qs('#clg-prayers-tabs', container);
 
-  const filters = { text: '', status: '' };
+  const filters = { text: '', status: '', type: 'all' };
+
+  tabsContainer?.addEventListener('click', (event) => {
+    const btn = event.target.closest('[data-tab-type]');
+    if (!btn) return;
+    tabsContainer.querySelectorAll('.clg-tab').forEach((t) => t.classList.remove('is-active'));
+    btn.classList.add('is-active');
+    filters.type = btn.dataset.tabType;
+    paint(getState().prayers || []);
+  });
 
   toolbar.innerHTML = `
     <form class="clg-filters" id="clg-prayers-filters" novalidate>
@@ -104,6 +131,17 @@ export function renderOracion(container) {
     const open = prayers.filter((p) => p.status === 'abierta').length;
     const answered = prayers.filter((p) => p.status === 'atendida').length;
     const reactions = prayers.reduce((sum, p) => sum + p.totalReactions, 0);
+
+    const countAll = prayers.length;
+    const countPeticiones = prayers.filter((p) => (p.type || '').toLowerCase() !== 'inquietud').length;
+    const countInquietudes = prayers.filter((p) => (p.type || '').toLowerCase() === 'inquietud').length;
+
+    const bAll = qs('#clg-tab-count-all', container);
+    const bPet = qs('#clg-tab-count-peticion', container);
+    const bInq = qs('#clg-tab-count-inquietud', container);
+    if (bAll) bAll.textContent = countAll;
+    if (bPet) bPet.textContent = countPeticiones;
+    if (bInq) bInq.textContent = countInquietudes;
 
     statsHost.innerHTML = `
       ${statCard({ label: 'Peticiones', value: String(prayers.length), icon: 'fa-envelope-open-text', tone: 'primary' })}
@@ -309,7 +347,11 @@ export function renderOracion(container) {
 
 function applyFilters(prayers, filters) {
   const text = String(filters.text || '').trim().toLowerCase();
+  const selectedType = filters.type || 'all';
+
   return prayers.filter((p) => {
+    if (selectedType === 'peticion' && (p.type || '').toLowerCase() === 'inquietud') return false;
+    if (selectedType === 'inquietud' && (p.type || '').toLowerCase() !== 'inquietud') return false;
     if (filters.status && p.status !== filters.status) return false;
     if (!text) return true;
     return `${p.name} ${p.text}`.toLowerCase().includes(text);

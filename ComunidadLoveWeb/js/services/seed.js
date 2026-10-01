@@ -66,6 +66,8 @@ export const DEFAULT_EVENTS = [
     location: 'Auditorio Principal Comunidad Love',
     description: 'Nuestra gran reunión general de adoración, comunión y enseñanza práctica de la Palabra para toda la familia. Domingos 9:00 AM.',
     bannerUrl: './Assets/somos comunidad love/love comunidad (1).jpeg',
+    dateStart: '2026-10-04T09:00:00',
+    dateEnd: '2026-10-04T11:30:00',
     isActive: true
   },
   {
@@ -74,6 +76,18 @@ export const DEFAULT_EVENTS = [
     location: 'Auditorio Principal Comunidad Love',
     description: 'Un espacio dinámico a mitad de semana dedicado a series temáticas de estudio bíblico con aplicaciones para el día a día. Miércoles 7:00 PM.',
     bannerUrl: './Assets/somos comunidad love/love comunidad (2).jpeg',
+    dateStart: '2026-10-07T19:00:00',
+    dateEnd: '2026-10-07T21:00:00',
+    isActive: true
+  },
+  {
+    title: 'Servicios Especiales del Sábado',
+    category: 'general',
+    location: 'Auditorio Comunidad Love',
+    description: 'Espacios dinámicos y segmentados: Ayuno y Clamor (7:00 AM), Love Woman (1er Sábado 5:00 PM), Love Youth Jóvenes (2do y Último Sábado 6:00 PM) y Parejas (Último Sábado 7:30 PM).',
+    bannerUrl: './Assets/somos comunidad love/love comunidad (3).jpeg',
+    dateStart: '2026-10-10T17:00:00',
+    dateEnd: '2026-10-10T20:30:00',
     isActive: true
   },
   {
@@ -82,6 +96,8 @@ export const DEFAULT_EVENTS = [
     location: 'Auditorio Comunidad Love',
     description: 'Reunión de conexión y edificación espiritual para todas las mujeres. 1er Sábado del mes - 5:00 PM.',
     bannerUrl: './Assets/LoveWoman.png',
+    dateStart: '2026-10-03T17:00:00',
+    dateEnd: '2026-10-03T19:30:00',
     isActive: true
   },
   {
@@ -90,14 +106,8 @@ export const DEFAULT_EVENTS = [
     location: 'Auditorio Comunidad Love',
     description: 'Música, adoración apasionada, mensaje relevante y comunidad para jóvenes y adolescentes. 2do y Último Sábado - 6:00 PM.',
     bannerUrl: './Assets/Love adora/love adora (5).jpg',
-    isActive: true
-  },
-  {
-    title: 'Servicio de Parejas',
-    category: 'matrimonios',
-    location: 'Salón de Eventos Comunidad Love',
-    description: 'Fortaleciendo los matrimonios y noviazgos bajo los principios de Dios, con charlas prácticas y comunión. Último Sábado - 7:30 PM.',
-    bannerUrl: './Assets/somos comunidad love/love comunidad (3).jpeg',
+    dateStart: '2026-10-10T18:00:00',
+    dateEnd: '2026-10-10T20:30:00',
     isActive: true
   },
   {
@@ -106,6 +116,8 @@ export const DEFAULT_EVENTS = [
     location: 'Auditorio Principal',
     description: 'Tiempo especial de búsqueda e intercesión por las familias, la ciudad y nuestra iglesia. Sábados 7:00 AM.',
     bannerUrl: './Assets/Love adora/love adora (7).jpg',
+    dateStart: '2026-10-03T07:00:00',
+    dateEnd: '2026-10-03T09:30:00',
     isActive: true
   }
 ];
@@ -158,8 +170,8 @@ export async function seedInitialData(actor) {
       for (const evt of DEFAULT_EVENTS) {
         await addDoc(collection(db, 'events'), {
           ...evt,
-          dateStart: new Date(),
-          dateEnd: null,
+          dateStart: evt.dateStart ? new Date(evt.dateStart) : new Date(),
+          dateEnd: evt.dateEnd ? new Date(evt.dateEnd) : null,
           createdAt: serverTimestamp(),
           updatedByName: actor?.displayName || 'Sistema'
         });

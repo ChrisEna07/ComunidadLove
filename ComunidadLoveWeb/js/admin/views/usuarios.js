@@ -331,16 +331,30 @@ export function renderUsuarios(container) {
 
           ${isEdit
             ? ''
-            : field({
-                name: 'uid',
-                label: 'UID de Authentication',
-                value: user?.uid || '',
-                required: true,
-                placeholder: 'Pégalo desde Firebase → Authentication',
-                icon: 'fa-fingerprint',
-                hint:
-                  'Crea primero la cuenta en Firebase Authentication → Agregar usuario y copia aquí su UID. Es lo que permite que su perfil quede vinculado al iniciar sesión.'
-              })}
+            : `
+              <div class="clg-grid-2">
+                ${field({
+                  name: 'password',
+                  label: 'Contraseña temporal',
+                  type: 'text',
+                  value: 'Love' + Math.floor(100000 + Math.random() * 900000) + '*',
+                  required: true,
+                  placeholder: 'Ej: Amor2026*',
+                  icon: 'fa-lock',
+                  hint: 'Se creará en Firebase Authentication sin cerrar tu sesión.'
+                })}
+                <div class="clg-field">
+                  <label>Envío de contraseña</label>
+                  <label class="clg-check" style="margin-top: 4px;">
+                    <input type="checkbox" name="sendResetEmail" checked>
+                    <span class="clg-check-box"><i class="fas fa-check"></i></span>
+                    <span class="clg-check-text" style="font-size: 0.8rem;">
+                      Enviar correo para definir contraseña propia
+                    </span>
+                  </label>
+                </div>
+              </div>
+            `}
 
           ${field({
             name: 'role',
@@ -364,15 +378,10 @@ export function renderUsuarios(container) {
           ${fullAccessNote}
 
           <div class="clg-security-note clg-security-note-info">
-            <i class="fas fa-circle-info"></i>
+            <i class="fas fa-circle-check"></i>
             <span>
-              <strong>Orden de alta:</strong> primero crea la cuenta en Firebase
-              Authentication (Authentication → Agregar usuario) con el mismo
-              correo, copia su UID en el campo de arriba y guarda aquí. Al
-              guardar, el perfil queda en esa misma ruta, así que la primera vez
-              que la persona inicie sesión ya tendrá su rol y sus funciones
-              asignados. Este panel no puede crear la cuenta de Authentication
-              ni cambiar contraseñas.
+              <strong>Alta nativa en un solo paso:</strong> la cuenta se registra automáticamente en Firebase
+              Authentication con la contraseña indicada y se vincula de inmediato con su rol y funciones en Firestore.
             </span>
           </div>
 
@@ -503,7 +512,8 @@ export function renderUsuarios(container) {
               role,
               permissions,
               activate: Boolean(data.isActive),
-              uid: data.uid
+              password: data.password || '',
+              sendResetEmail: Boolean(data.sendResetEmail)
             },
             actor.role
           );
@@ -514,7 +524,7 @@ export function renderUsuarios(container) {
             details: { target: data.email, role }
           });
           showToast(
-            result.created ? 'Usuario registrado' : 'Perfil actualizado',
+            result.created ? 'Usuario registrado y cuenta creada' : 'Perfil actualizado',
             'success'
           );
         }

@@ -3,7 +3,8 @@
    ========================================================================== */
 
 import { firebaseReady, configError } from '../firebase.js';
-import { watchSession, signOut, can, roleLabel } from '../lib/auth.js';
+import { watchSession, signOut, can, roleLabel, updateUserPassword } from '../lib/auth.js';
+import { updateOwnProfile } from '../services/users.js';
 import { escapeHTML, qs, qsa, showToast } from '../lib/dom.js';
 import { installImageFallback } from '../lib/image.js';
 import { defineRoute, setNotFound, startRouter, navigate } from './router.js';
@@ -19,7 +20,7 @@ import { renderUsuarios } from './views/usuarios.js';
 import { renderMarket } from './views/market.js';
 import { renderOracion } from './views/oracion.js';
 import { renderAuditoria } from './views/auditoria.js';
-import { emptyState } from './ui.js';
+import { emptyState, drawer, field, readForm, markInvalid, clearInvalid, setLoading } from './ui.js';
 
 const root = qs('#clg-app');
 
@@ -135,8 +136,10 @@ function renderBoot(message, { fatal = false } = {}) {
 
   root.innerHTML = `
     <div class="clg-boot">
-      <div class="clg-boot-card">
-        <i class="fas fa-circle-notch fa-spin"></i>
+      <div class="clg-boot-card clg-boot-pulse">
+        <div class="clg-heart-pulse-box">
+          <img src="../Assets/logo-color.png" alt="Comunidad Love" class="clg-heart-pulse-logo">
+        </div>
         <h1>CLGestión</h1>
         <p>${escapeHTML(message)}</p>
       </div>
@@ -205,6 +208,10 @@ function renderShell() {
           <button type="button" class="clg-nav-link clg-nav-link-danger" data-action="logout">
             <i class="fas fa-right-from-bracket"></i><span>Cerrar sesión</span>
           </button>
+          <a href="https://christian-romero.vercel.app/" target="_blank" rel="noopener noreferrer" class="clg-dev-credit-link" title="Portafolio del Desarrollador">
+            <i class="fas fa-code"></i>
+            <span>By <strong>ChrizDev</strong> (Christian Romero)</span>
+          </a>
         </div>
       </aside>
 
@@ -225,6 +232,7 @@ function renderShell() {
         <main class="clg-outlet" id="clg-outlet"></main>
       </div>
       <div class="clg-sidebar-overlay" data-action="close-sidebar"></div>
+      <div id="clg-my-profile-drawer"></div>
     </div>
   `;
 
@@ -250,11 +258,140 @@ function renderShell() {
   });
 
   qs('[data-action="my-profile"]', root)?.addEventListener('click', () => {
-    navigate('usuarios');
+    openMyProfileModal(profile);
   });
 
   syncActiveNav();
   startRouter(qs('#clg-outlet', root), syncActiveNav);
+}
+
+function openMyProfileModal(profile) {
+  const host = qs('#clg-my-profile-drawer', root);
+  if (!host) return;
+
+  const body = `
+    <form id="clg-my-profile-form" class="clg-form" autocomplete="off" novalidate>
+      <div class="clg-drawer-profile" style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; padding: 1rem; background: var(--clg-surface-2, #1e293b); border-radius: var(--clg-radius-md, 8px);">
+        <span class="clg-avatar" style="width: 48px; height: 48px; font-size: 1.25rem;">${escapeHTML(initials(profile.displayName || profile.email))}</span>
+        <div>
+          <div style="font-weight: 700; font-size: 1rem; color: var(--clg-text, #f8fafc);">${escapeHTML(profile.email || '')}</div>
+          <span class="clg-badge clg-badge-primary" style="margin-top: 0.25rem; display: inline-block;">${escapeHTML(roleLabel(profile.role))}</span>
+        </div>
+      </div>
+
+      <section class="clg-form-section">
+        <h3 class="clg-section-title"><i class="fas fa-id-card"></i> Datos personales</h3>
+        ${field({
+          key: 'fullName',
+          label: 'Nombre completo',
+          value: profile.displayName || '',
+          required: true,
+          icon: 'fa-user',
+          placeholder: 'Ej. Christian Romero'
+        })}
+      </section>
+
+      <section class="clg-form-section" style="margin-top: 1.5rem;">
+        <h3 class="clg-section-title"><i class="fas fa-shield-halved"></i> Seguridad y Contraseña</h3>
+        <p class="clg-hint" style="margin-bottom: 0.75rem;">Si no deseas cambiar tu contraseña, deja estos campos en blanco.</p>
+        ${field({
+          key: 'newPassword',
+          label: 'Nueva contraseña',
+          type: 'password',
+          icon: 'fa-lock',
+          placeholder: 'Mínimo 6 caracteres'
+        })}
+        ${field({
+          key: 'confirmPassword',
+          label: 'Confirmar nueva contraseña',
+          type: 'password',
+          icon: 'fa-lock',
+          placeholder: 'Repite la nueva contraseña'
+        })}
+      </section>
+
+      <div class="clg-drawer-actions" style="margin-top: 2rem; display: flex; justify-content: flex-end; gap: 0.75rem;">
+        <button type="button" class="clg-btn clg-btn-ghost" data-close-drawer="clg-profile-drawer">Cancelar</button>
+        <button type="submit" class="clg-btn clg-btn-primary">
+          <i class="fas fa-floppy-disk"></i><span>Guardar cambios</span>
+        </button>
+      </div>
+    </form>
+  `;
+
+  host.innerHTML = drawer({
+    id: 'clg-profile-drawer',
+    title: 'Mi Perfil de Usuario',
+    body
+  });
+
+  const form = qs('#clg-my-profile-form', host);
+  const overlay = host.querySelector('.clg-drawer-overlay');
+  qs('#clg-profile-drawer', host)?.classList.add('is-open');
+
+  const closeDrawer = () => {
+    qs('#clg-profile-drawer', host)?.classList.remove('is-open');
+    host.innerHTML = '';
+  };
+
+  host.querySelectorAll('[data-close-drawer]').forEach((btn) => {
+    btn.addEventListener('click', closeDrawer);
+  });
+  overlay?.addEventListener('click', closeDrawer);
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    clearInvalid(form);
+    const data = readForm(form);
+
+    if (!data.fullName || data.fullName.length < 3) {
+      markInvalid(form, 'Ingresa un nombre completo válido (mínimo 3 caracteres).');
+      return;
+    }
+
+    if (data.newPassword || data.confirmPassword) {
+      if (data.newPassword.length < 6) {
+        markInvalid(form, 'La nueva contraseña debe tener al menos 6 caracteres.');
+        return;
+      }
+      if (data.newPassword !== data.confirmPassword) {
+        markInvalid(form, 'Las contraseñas ingresadas no coinciden.');
+        return;
+      }
+    }
+
+    setLoading(form, true, 'Actualizando…');
+
+    try {
+      if (data.fullName !== profile.displayName) {
+        await updateOwnProfile({ fullName: data.fullName });
+        profile.displayName = data.fullName;
+        const currentProfile = getState().profile;
+        if (currentProfile) currentProfile.displayName = data.fullName;
+
+        const chip = qs('.clg-user-chip-text', root);
+        if (chip) chip.querySelector('strong').textContent = data.fullName;
+        const avatar = qs('.clg-user-chip .clg-avatar', root);
+        if (avatar) avatar.textContent = initials(data.fullName);
+      }
+
+      if (data.newPassword) {
+        await updateUserPassword(data.newPassword);
+      }
+
+      showToast('Perfil actualizado correctamente.', 'success');
+      closeDrawer();
+    } catch (err) {
+      console.error('[CL] Error al actualizar perfil:', err);
+      let msg = err.message || 'No se pudo actualizar el perfil.';
+      if (err.code === 'auth/requires-recent-login') {
+        msg = 'Por seguridad, debes cerrar sesión e iniciarla nuevamente para cambiar tu contraseña.';
+      }
+      markInvalid(form, msg);
+    } finally {
+      setLoading(form, false);
+    }
+  });
 }
 
 function syncActiveNav() {

@@ -17,11 +17,14 @@ import {
   createProduct,
   updateProduct,
   setProductActive,
-  deleteProduct
+  deleteProduct,
+  watchMarketOrders,
+  updateMarketOrderStatus,
+  deleteMarketOrder
 } from '../../services/market.js';
 import { logAudit } from '../../services/audit.js';
 import { escapeHTML, qs, showToast, confirmDialog } from '../../lib/dom.js';
-import { subscribe, getState } from '../store.js';
+import { subscribe, getState, removeLocalEntity } from '../store.js';
 import {
   pageHeader,
   emptyState,
@@ -43,13 +46,25 @@ export function renderMarket(container) {
   container.innerHTML = `
     ${pageHeader({
       title: 'Love Market',
-      subtitle: 'Administra los productos que se muestran en la web pública',
+      subtitle: 'Administra los productos que se muestran en la web pública y gestiona los pedidos',
       icon: 'fa-store',
-      actions: `<button class="clg-btn clg-btn-primary" type="button" data-action="new">
+      actions: `<button class="clg-btn clg-btn-primary" type="button" data-action="new" id="btn-market-new-product">
                   <i class="fas fa-plus"></i><span>Nuevo producto</span>
                 </button>`
     })}
     <div class="clg-stats-grid" id="clg-market-stats"></div>
+    <div class="clg-tabs" id="clg-market-tabs" role="tablist">
+      <button type="button" class="clg-tab is-active" data-market-tab="products">
+        <i class="fas fa-boxes-stacked"></i>
+        <span>Catálogo de Productos</span>
+        <span class="clg-tab-badge" id="clg-tab-count-products">0</span>
+      </button>
+      <button type="button" class="clg-tab" data-market-tab="orders">
+        <i class="fas fa-clipboard-list"></i>
+        <span>Pedidos y Solicitudes</span>
+        <span class="clg-tab-badge" id="clg-tab-count-orders">0</span>
+      </button>
+    </div>
     <div id="clg-market-body">
       <div class="clg-table-skeleton">
         ${Array.from({ length: 3 }, () => '<div class="clg-skeleton-row"></div>').join('')}
@@ -61,40 +76,99 @@ export function renderMarket(container) {
   const statsHost = qs('#clg-market-stats', container);
   const body = qs('#clg-market-body', container);
   const drawerHost = qs('#clg-market-drawer', container);
+  const tabsContainer = qs('#clg-market-tabs', container);
+
+  let activeTab = 'products';
+  let marketOrders = [];
+  let productsList = [];
+  let isReady = false;
+
+  const renderCurrentView = () => {
+    const bProd = qs('#clg-tab-count-products', container);
+    const bOrd = qs('#clg-tab-count-orders', container);
+    const pendingOrders = marketOrders.filter((o) => o.status === 'pendiente').length;
+
+    if (bProd) bProd.textContent = productsList.length;
+    if (bOrd) bOrd.textContent = pendingOrders > 0 ? `${pendingOrders} pend.` : marketOrders.length;
+
+    const btnNew = qs('#btn-market-new-product', container);
+    if (btnNew) btnNew.style.display = activeTab === 'products' ? 'inline-flex' : 'none';
+
+    if (activeTab === 'products') {
+      const active = productsList.filter((p) => p.isActive);
+      statsHost.innerHTML = `
+        ${statCard({ label: 'Productos', value: String(productsList.length), icon: 'fa-box', tone: 'primary' })}
+        ${statCard({ label: 'Publicados', value: String(active.length), icon: 'fa-eye', tone: 'success' })}
+        ${statCard({
+          label: 'Pausados',
+          value: String(productsList.length - active.length),
+          icon: 'fa-eye-slash',
+          tone: 'neutral'
+        })}
+        ${statCard({
+          label: 'Valor publicado',
+          value: formatPrice(active.reduce((sum, p) => sum + p.price, 0)),
+          icon: 'fa-sack-dollar',
+          tone: 'news'
+        })}
+      `;
+
+      if (!productsList.length && isReady) {
+        body.innerHTML = emptyState({
+          icon: 'fa-store',
+          title: 'No hay productos todavía',
+          message:
+            'Crea el primero para que aparezca en la web. Mientras no haya productos, el sitio muestra los ejemplos de fábrica.',
+          action: ''
+        });
+        return;
+      }
+
+      body.innerHTML = productsList.length ? renderGrid(productsList) : body.innerHTML;
+    } else {
+      const delivered = marketOrders.filter((o) => o.status === 'entregado').length;
+      const totalAmount = marketOrders
+        .filter((o) => o.status !== 'cancelado')
+        .reduce((sum, o) => sum + (o.productPrice || 0), 0);
+
+      statsHost.innerHTML = `
+        ${statCard({ label: 'Total Pedidos', value: String(marketOrders.length), icon: 'fa-clipboard-list', tone: 'primary' })}
+        ${statCard({ label: 'Pendientes', value: String(pendingOrders), icon: 'fa-clock', tone: 'warning' })}
+        ${statCard({ label: 'Entregados', value: String(delivered), icon: 'fa-circle-check', tone: 'success' })}
+        ${statCard({ label: 'Monto estimado', value: formatPrice(totalAmount), icon: 'fa-sack-dollar', tone: 'news' })}
+      `;
+
+      if (!marketOrders.length) {
+        body.innerHTML = emptyState({
+          icon: 'fa-clipboard-list',
+          title: 'No hay solicitudes de pedidos todavía',
+          message: 'Cuando las personas soliciten productos desde la landing pública ("¡Lo quiero!"), aparecerán aquí en tiempo real.'
+        });
+        return;
+      }
+
+      body.innerHTML = renderOrdersList(marketOrders);
+    }
+  };
+
+  tabsContainer?.addEventListener('click', (event) => {
+    const btn = event.target.closest('[data-market-tab]');
+    if (!btn) return;
+    tabsContainer.querySelectorAll('.clg-tab').forEach((t) => t.classList.remove('is-active'));
+    btn.classList.add('is-active');
+    activeTab = btn.dataset.marketTab;
+    renderCurrentView();
+  });
 
   const off = subscribe(['products', 'ready'], (state) => {
-    const products = state.products || [];
-    const active = products.filter((p) => p.isActive);
+    productsList = state.products || [];
+    isReady = Boolean(state.ready);
+    renderCurrentView();
+  });
 
-    statsHost.innerHTML = `
-      ${statCard({ label: 'Productos', value: String(products.length), icon: 'fa-box', tone: 'primary' })}
-      ${statCard({ label: 'Publicados', value: String(active.length), icon: 'fa-eye', tone: 'success' })}
-      ${statCard({
-        label: 'Pausados',
-        value: String(products.length - active.length),
-        icon: 'fa-eye-slash',
-        tone: 'neutral'
-      })}
-      ${statCard({
-        label: 'Valor publicado',
-        value: formatPrice(active.reduce((sum, p) => sum + p.price, 0)),
-        icon: 'fa-sack-dollar',
-        tone: 'news'
-      })}
-    `;
-
-    if (!products.length && state.ready) {
-      body.innerHTML = emptyState({
-        icon: 'fa-store',
-        title: 'No hay productos todavía',
-        message:
-          'Crea el primero para que aparezca en la web. Mientras no haya productos, el sitio muestra los ejemplos de fábrica.',
-        action: ''
-      });
-      return;
-    }
-
-    body.innerHTML = products.length ? renderGrid(products) : body.innerHTML;
+  const unsubOrders = watchMarketOrders((orders) => {
+    marketOrders = orders;
+    renderCurrentView();
   });
 
   container.addEventListener('click', async (event) => {
@@ -142,6 +216,7 @@ export function renderMarket(container) {
       if (!ok) return;
       try {
         await deleteProduct(product.id);
+        removeLocalEntity('products', product.id);
         await logAudit({
           actor: me,
           action: 'market.delete',
@@ -151,6 +226,32 @@ export function renderMarket(container) {
         showToast('Producto eliminado', 'success');
       } catch (error) {
         showToast(error.message || 'No se pudo eliminar.', 'danger');
+      }
+    }
+
+    if (action === 'set-order-status') {
+      const newStatus = trigger.dataset.status;
+      try {
+        await updateMarketOrderStatus(id, newStatus);
+        showToast(`Pedido marcado como ${newStatus}`, 'success');
+      } catch (error) {
+        showToast(error.message || 'No se pudo actualizar el pedido.', 'danger');
+      }
+    }
+
+    if (action === 'delete-order') {
+      const ok = await confirmDialog({
+        title: 'Eliminar pedido',
+        message: '¿Estás seguro de eliminar este pedido del registro?',
+        confirmText: 'Eliminar',
+        danger: true
+      });
+      if (!ok) return;
+      try {
+        await deleteMarketOrder(id);
+        showToast('Pedido eliminado del registro', 'success');
+      } catch (error) {
+        showToast(error.message || 'No se pudo eliminar el pedido.', 'danger');
       }
     }
   });
@@ -323,7 +424,10 @@ export function renderMarket(container) {
     });
   }
 
-  return () => off();
+  return () => {
+    off();
+    unsubOrders();
+  };
 }
 
 /* --------------------------------------------------------------------------
@@ -372,4 +476,77 @@ function renderGrid(products) {
     .join('');
 
   return `<div class="clg-product-grid">${cards}</div>`;
+}
+
+function renderOrdersList(orders) {
+  const cards = orders.map((o) => {
+    const cleanPhone = String(o.customerPhone || '').replace(/\D/g, '');
+    const waText = encodeURIComponent(`Hola ${o.customerName}, te escribimos de Comunidad Love respecto a tu solicitud de "${o.productName}".`);
+    const waLink = `https://wa.me/57${cleanPhone}?text=${waText}`;
+
+    const statusTone = o.status === 'entregado' ? 'success' : (o.status === 'cancelado' ? 'neutral' : 'warning');
+    const statusText = o.status === 'entregado' ? 'Entregado' : (o.status === 'cancelado' ? 'Cancelado' : 'Pendiente');
+
+    return `
+      <article class="clg-card" style="padding: 18px; margin-bottom: 16px; border-left: 4px solid var(--clg-${statusTone === 'warning' ? 'primary' : (statusTone === 'success' ? 'success' : 'line')});" data-order-id="${o.id}">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <strong style="font-size: 1.05rem; color: var(--clg-secondary);">${escapeHTML(o.customerName)}</strong>
+              ${tag(statusText, statusTone)}
+            </div>
+            <div style="font-size: 0.85rem; color: var(--clg-muted); margin-top: 4px;">
+              <i class="fas fa-phone"></i> ${escapeHTML(o.customerPhone)} · <i class="fas fa-clock"></i> ${escapeHTML(o.createdAt ? o.createdAt.toLocaleString('es-CO') : 'Reciente')}
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <a href="${waLink}" target="_blank" rel="noopener noreferrer" class="clg-btn clg-btn-sm" style="background: #25D366; color: white;" title="Escribir por WhatsApp">
+              <i class="fab fa-whatsapp"></i><span>Chat WhatsApp</span>
+            </a>
+            ${o.status !== 'entregado' ? `
+              <button type="button" class="clg-btn clg-btn-sm clg-btn-ghost" data-action="set-order-status" data-id="${o.id}" data-status="entregado" title="Marcar como entregado">
+                <i class="fas fa-check" style="color: var(--clg-success);"></i><span>Entregar</span>
+              </button>
+            ` : ''}
+            ${o.status !== 'cancelado' ? `
+              <button type="button" class="clg-btn clg-btn-sm clg-btn-ghost" data-action="set-order-status" data-id="${o.id}" data-status="cancelado" title="Cancelar pedido">
+                <i class="fas fa-ban" style="color: var(--clg-muted);"></i><span>Cancelar</span>
+              </button>
+            ` : ''}
+            <button type="button" class="clg-btn clg-btn-sm clg-btn-danger-soft" data-action="delete-order" data-id="${o.id}" title="Eliminar registro">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </div>
+
+        <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--clg-line); display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; font-size: 0.88rem;">
+          <div>
+            <div style="color: var(--clg-muted); font-size: 0.78rem; font-weight: 600;">PRODUCTO / VARIANTE:</div>
+            <strong>${escapeHTML(o.productName)}</strong> ${o.variant ? `<span class="clg-badge" style="margin-left: 4px;">${escapeHTML(o.variant)}</span>` : ''}
+            <div style="color: var(--clg-primary); font-weight: 700; margin-top: 2px;">${escapeHTML(formatPrice(o.productPrice))}</div>
+          </div>
+          <div>
+            <div style="color: var(--clg-muted); font-size: 0.78rem; font-weight: 600;">MÉTODO DE PAGO:</div>
+            <div>${o.paymentMethod === 'transfer' ? '<i class="fas fa-building-columns"></i> Transferencia (Nequi/Banco)' : '<i class="fas fa-money-bill-wave"></i> Efectivo en sede'}</div>
+            ${o.receiptUrl ? `
+              <div style="margin-top: 6px;">
+                <a href="${escapeHTML(o.receiptUrl)}" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--clg-primary); font-weight: 600;">
+                  <img src="${escapeHTML(o.receiptUrl)}" alt="Comprobante" style="width: 32px; height: 32px; border-radius: 4px; object-fit: cover; border: 1px solid var(--clg-line);">
+                  <span>Ver Comprobante</span>
+                </a>
+              </div>
+            ` : ''}
+          </div>
+          ${o.notes ? `
+            <div>
+              <div style="color: var(--clg-muted); font-size: 0.78rem; font-weight: 600;">NOTAS:</div>
+              <div style="font-style: italic;">"${escapeHTML(o.notes)}"</div>
+            </div>
+          ` : ''}
+        </div>
+      </article>
+    `;
+  }).join('');
+
+  return `<div class="clg-orders-list">${cards}</div>`;
 }

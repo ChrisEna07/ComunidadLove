@@ -25,6 +25,14 @@
    creación del perfil propio exige `role == null` e `isActive == false`.
    ========================================================================== */
 
+import { initializeApp, deleteApp } from 'firebase/app';
+import {
+  createUserWithEmailAndPassword,
+  getAuth,
+  signOut as authSignOut,
+  updateProfile as fbUpdateProfile,
+  sendPasswordResetEmail
+} from 'firebase/auth';
 import {
   collection,
   deleteDoc,
@@ -36,9 +44,36 @@ import {
   setDoc,
   updateDoc
 } from 'firebase/firestore';
-import { sendPasswordResetEmail } from 'firebase/auth';
-import { auth, db, requireService } from '../firebase.js';
+import { auth, db, requireService, firebaseConfig } from '../firebase.js';
 import { ROLES, sanitizePermissions, canGrantRole } from '../lib/roles.js';
+
+let secondaryAppCounter = 0;
+
+/**
+ * Crea una cuenta nativa en Firebase Authentication usando una instancia
+ * secundaria de Firebase App para NO cerrar la sesión del admin conectado.
+ */
+export async function createAuthUserWithoutSignout(email, password, displayName) {
+  if (!firebaseConfig) throw new Error('Firebase no está configurado.');
+  const appName = `SecondaryAuth_${Date.now()}_${++secondaryAppCounter}`;
+  const secondaryApp = initializeApp(firebaseConfig, appName);
+  try {
+    const secondaryAuth = getAuth(secondaryApp);
+    const cred = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+    if (displayName) {
+      try {
+        await fbUpdateProfile(cred.user, { displayName });
+      } catch {}
+    }
+    const uid = cred.user.uid;
+    await authSignOut(secondaryAuth);
+    return uid;
+  } finally {
+    try {
+      await deleteApp(secondaryApp);
+    } catch {}
+  }
+}
 
 const USERS = 'users';
 const TEAM = 'team';
@@ -130,30 +165,38 @@ export async function registerOwnProfile(user) {
 }
 
 /**
+ * Actualiza el perfil propio del usuario autenticado actualmente.
+ */
+export async function updateOwnProfile({ fullName }) {
+  requireService(db, 'Firestore');
+  const user = auth?.currentUser;
+  if (!user) throw new Error('No hay sesión activa.');
+  const cleanName = String(fullName || '').trim();
+  if (!cleanName) throw new Error('Ingresa tu nombre.');
+
+  try {
+    await fbUpdateProfile(user, { displayName: cleanName });
+  } catch {}
+
+  const ref = doc(db, USERS, user.uid);
+  await updateDoc(ref, {
+    displayName: cleanName,
+    fullName: cleanName,
+    updatedAt: serverTimestamp()
+  });
+  return true;
+}
+
+/**
  * Da de alta un usuario ("Agregar usuario").
- *
- * El flujo es **UID primero**: la cuenta de Authentication se crea antes en la
- * consola de Firebase (Authentication → Agregar usuario) y el administrador
- * pega aquí su UID.
- *
- * El motivo es que el perfil se guarda en `users/{uid}`, exactamente la misma
- * ruta que usa `registerOwnProfile()` al iniciar sesión. Así, la primera vez
- * que la persona entra ya encuentra su perfil y conserva el rol, las funciones
- * delegadas y el estado que le asignó el administrador. Con un ID aleatorio en
- * cambio, el login creaba un segundo perfil pendiente y el rol nunca se
- * aplicaba, y las reglas de Firestore no permiten a un usuario inactivo
- * localizar el documento ajeno por correo para reclamarlo.
- *
- * No envía correo ni crea la cuenta: el SDK web no puede hacerlo sin cerrar la
- * sesión del administrador. El perfil nace inactivo salvo que `activate` venga
- * marcado.
+ * Si no se proporciona un UID manual, crea automáticamente la cuenta en Firebase
+ * Authentication sin cerrar la sesión del administrador.
  */
 export async function createUserAccount(
-  { fullName, email, role, permissions = [], activate = false, uid },
+  { fullName, email, role, permissions = [], activate = true, uid = '', password = '', sendResetEmail = true },
   actorRole
 ) {
   requireService(db, 'Firestore');
-  const cleanUid = String(uid || '').trim();
   const cleanEmail = String(email || '').trim().toLowerCase();
   const cleanName = String(fullName || '').trim();
 
@@ -161,16 +204,32 @@ export async function createUserAccount(
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) throw new Error('Ingresa un correo válido.');
   if (!ROLES.includes(role)) throw new Error('Selecciona un rol válido.');
   if (!canGrantRole(actorRole, role)) throw new Error('No puedes asignar ese rol.');
-  if (!cleanUid) throw new Error('Pega el UID de la cuenta de Authentication.');
-  // Un UID de Firebase es alfanumérico y no lleva espacios ni signos raros.
-  if (!/^[A-Za-z0-9_-]{6,128}$/.test(cleanUid)) {
-    throw new Error('El UID no tiene un formato válido. Cópialo desde la consola de Firebase.');
+
+  let targetUid = String(uid || '').trim();
+
+  // Si no se proporcionó UID manual, creamos el usuario en Firebase Authentication nativamente
+  if (!targetUid) {
+    const initialPassword = password || ('Love' + Math.floor(100000 + Math.random() * 900000) + '*');
+    try {
+      targetUid = await createAuthUserWithoutSignout(cleanEmail, initialPassword, cleanName);
+    } catch (err) {
+      if (err.code === 'auth/email-already-in-use') {
+        throw new Error('Ese correo ya tiene una cuenta en Firebase Authentication. Puedes asignarle rol ingresando su correo.');
+      }
+      throw new Error(err.message || 'No se pudo crear la cuenta en Authentication.');
+    }
+
+    if (sendResetEmail) {
+      try {
+        await sendPasswordResetEmail(auth, cleanEmail);
+      } catch (err) {
+        console.warn('[CL] No se pudo enviar el correo de restablecimiento automático:', err);
+      }
+    }
   }
 
-  // El nombre se guarda en `displayName` (el campo que ya leen el resto de
-  // vistas) y además en `fullName`, que es el nombre que pedía el listado.
   const payload = {
-    uid: cleanUid,
+    uid: targetUid,
     email: cleanEmail,
     displayName: cleanName,
     fullName: cleanName,
@@ -182,52 +241,36 @@ export async function createUserAccount(
   };
 
   try {
-    const ref = doc(db, USERS, cleanUid);
+    const ref = doc(db, USERS, targetUid);
     const existing = await getDoc(ref);
 
     if (existing.exists()) {
-      // El mismo UID ya estaba dado de alta: se actualiza en lugar de duplicar,
-      // conservando el `createdAt` original.
       const created = existing.data().createdAt;
       const { createdAt, ...patch } = payload;
       if (created) patch.createdAt = created;
       await updateDoc(ref, patch);
       await syncTeamEntry({
-        uid: cleanUid,
+        uid: targetUid,
         email: cleanEmail,
         displayName: cleanName,
         role,
         isActive: payload.isActive
       });
-      return { id: cleanUid, created: false };
-    }
-
-    // Aviso: se revisa que el correo no esté en otro perfil, porque la persona
-    // podría iniciar sesión con otra cuenta y quedarse con un perfil pendiente.
-    const all = await getDocs(collection(db, USERS));
-    const duplicated = all.docs.find(
-      (d) =>
-        d.id !== cleanUid && String(d.data().email || '').toLowerCase() === cleanEmail
-    );
-    if (duplicated) {
-      throw new Error(
-        `Ese correo ya está registrado con otro UID. Elimina el perfil anterior o reutiliza su UID.`
-      );
+      return { id: targetUid, uid: targetUid, created: false };
     }
 
     await setDoc(ref, payload);
     await syncTeamEntry({
-      uid: cleanUid,
+      uid: targetUid,
       email: cleanEmail,
       displayName: cleanName,
       role,
       isActive: payload.isActive
     });
-    return { id: cleanUid, created: true };
+    return { id: targetUid, uid: targetUid, created: true };
   } catch (error) {
-    console.error('[CL] Error creando usuario:', error);
-    if (error.message && !error.code) throw error;
-    throw new Error(error.message || 'No se pudo registrar el usuario.');
+    console.error('[CL] Error en createUserAccount:', error);
+    throw new Error(error.message || 'No se pudo guardar el usuario en Firestore.');
   }
 }
 
