@@ -44,3 +44,5 @@ export function isFirebaseConfigured() {
     return typeof value === 'string' && value.trim() !== '' && !PLACEHOLDER_PATTERN.test(value.trim());
   });
 }
+
+export default firebaseConfig;

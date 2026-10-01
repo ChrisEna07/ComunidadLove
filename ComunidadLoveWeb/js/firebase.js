@@ -26,56 +26,52 @@ export const DEFAULT_FIREBASE_CONFIG = {
   measurementId: 'G-Q4W377M5M7'
 };
 
-let firebaseConfig = null;
-let isConfigured = false;
+// 0. Base garantizada siempre disponible por defecto (evita pantallas bloqueadas en Vercel)
+let firebaseConfig = { ...DEFAULT_FIREBASE_CONFIG };
+let isConfigured = true;
 
-// 1. Intentar cargar js/firebase-config.js
+// 1. Intentar cargar js/firebase-config.js sin bloquear si no responde o falla
 try {
-  const configMod = await import('./firebase-config.js');
-  if (configMod && configMod.firebaseConfig) {
-    firebaseConfig = configMod.firebaseConfig;
-    if (typeof configMod.isFirebaseConfigured === 'function') {
-      isConfigured = configMod.isFirebaseConfigured();
-    } else {
-      isConfigured = Boolean(firebaseConfig.apiKey && firebaseConfig.projectId);
+  const configMod = await import('./firebase-config.js').catch(() => null);
+  if (configMod) {
+    const loaded = configMod.firebaseConfig || configMod.default;
+    if (loaded && loaded.apiKey && !String(loaded.apiKey).includes('PEGAR_AQUI')) {
+      firebaseConfig = loaded;
     }
   }
 } catch (err) {
-  console.info('[CL] Nota: cargando configuración predeterminada de Firebase.');
+  console.info('[CL] Usando configuración predeterminada de Firebase Spark.');
 }
 
 // 2. Fallback: window.__FIREBASE_CONFIG__
-if (!isConfigured && typeof window !== 'undefined' && window.__FIREBASE_CONFIG__) {
-  firebaseConfig = window.__FIREBASE_CONFIG__;
-  isConfigured = Boolean(firebaseConfig && firebaseConfig.apiKey && firebaseConfig.projectId);
+if (typeof window !== 'undefined' && window.__FIREBASE_CONFIG__) {
+  const winCfg = window.__FIREBASE_CONFIG__;
+  if (winCfg && winCfg.apiKey && winCfg.projectId) {
+    firebaseConfig = winCfg;
+  }
 }
 
 // 3. Fallback: localStorage
-if (!isConfigured && typeof window !== 'undefined' && window.localStorage) {
+if (typeof window !== 'undefined' && window.localStorage) {
   try {
     const stored = localStorage.getItem('cl_firebase_config');
     if (stored) {
       const parsed = JSON.parse(stored);
       if (parsed && parsed.apiKey && parsed.projectId) {
         firebaseConfig = parsed;
-        isConfigured = true;
       }
     }
   } catch {}
 }
 
-// 4. Fallback directo a DEFAULT_FIREBASE_CONFIG (garantiza código 200 y conexión activa en Vercel)
-if (!isConfigured || !firebaseConfig || !firebaseConfig.apiKey) {
+// 4. Verificación final: asegurado 100% por DEFAULT_FIREBASE_CONFIG
+if (!firebaseConfig || !firebaseConfig.apiKey) {
   firebaseConfig = DEFAULT_FIREBASE_CONFIG;
-  isConfigured = true;
 }
+isConfigured = true;
 
-export const configError = (() => {
-  if (isConfigured) return null;
-  return 'Configuración de Firebase no encontrada.';
-})();
-
-export const firebaseReady = isConfigured;
+export const configError = null;
+export const firebaseReady = true;
 
 let app = null;
 let db = null;
@@ -104,7 +100,8 @@ export { app, db, auth, firebaseConfig };
 
 export function requireService(service, name) {
   if (!service) {
-    throw new Error(`${name} no está disponible. ${configError || 'Revisa la consola del navegador.'}`);
+    throw new Error(`${name} no está disponible. Revisa la consola del navegador.`);
   }
   return service;
 }
+

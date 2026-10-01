@@ -25,6 +25,11 @@ import { initGlobalErrorCapture } from '../lib/logger.js';
 import { initPWA, installPWAApp, onPWAInstallAvailable } from '../lib/pwa.js';
 import { emptyState, drawer, field, readForm, markInvalid, clearInvalid, setLoading } from './ui.js';
 
+// Indicar inmediatamente que el script de administración ha iniciado
+if (typeof window !== 'undefined') {
+  window.__CLG_STARTED__ = true;
+}
+
 // Inicializar captura global de excepciones y PWA offline
 initGlobalErrorCapture();
 initPWA();
@@ -86,8 +91,8 @@ function renderBoot(message, { fatal = false } = {}) {
           </div>
 
           <div class="clg-boot-hint" style="font-size: 0.84rem; line-height: 1.5; margin-bottom: 20px;">
-            <p style="margin: 0 0 6px 0;"><strong>¿Por qué ocurre esto?</strong></p>
-            <p style="margin: 0;">Por seguridad, el archivo <code>js/firebase-config.js</code> está protegido en <code>.gitignore</code> para evitar exponer credenciales en repositorios públicos. Al desplegar en Vercel, este archivo no se sube automáticamente.</p>
+            <p style="margin: 0 0 6px 0;"><strong>Diagnóstico de Conexión</strong></p>
+            <p style="margin: 0;">No se pudo verificar la configuración de Firebase. Puedes ingresar las credenciales para este navegador o recargar la página.</p>
           </div>
 
           <div style="background: var(--clg-bg); border: 1px solid var(--clg-line); border-radius: 12px; padding: 16px; margin-bottom: 20px;">

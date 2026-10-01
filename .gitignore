@@ -40,9 +40,15 @@ storage-debug.log*
 ui-debug.log*
 emulator-debug.log*
 *.log
+# Asegurar que firebase-config.js NUNCA sea ignorado para que Vercel lo sirva
+!firebase-config.js
+!*firebase-config.js
+!ComunidadLoveWeb/js/firebase-config.js
+!js/firebase-config.js
 # .firebaserc se versiona porque es útil en CI/CD (contiene el project ID,
 # que no es un secreto). Si tu flujo no lo necesita, descomenta la línea de abajo.
 # ComunidadLoveWeb/.firebaserc
+
 
 # ==============================================================================
 # ASSETS FILTERING (Keep only used/needed files)
