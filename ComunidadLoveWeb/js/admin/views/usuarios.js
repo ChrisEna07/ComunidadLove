@@ -83,15 +83,16 @@ export function renderUsuarios(container) {
   const buttons = container.querySelectorAll('[data-action]');
 
   const off = subscribe(['users', 'profile'], (state) => {
-    if (state.users.length === 0 && state.ready) {
+    const delegableUsers = (state.users || []).filter((u) => u.role !== 'superadmin');
+    if (delegableUsers.length === 0 && state.ready) {
       body.innerHTML = emptyState({
         icon: 'fa-user-group',
         title: 'Aún no hay usuarios registrados',
         message: 'Agrega al primer miembro del equipo para que pueda acceder al panel.',
         action: ''
       });
-    } else if (state.users.length) {
-      body.innerHTML = renderTable(state.users, me, canManage);
+    } else if (delegableUsers.length) {
+      body.innerHTML = renderTable(delegableUsers, me, canManage);
     }
 
     // El botón sólo existe si quien mira puede administrar; se conserva el
@@ -332,30 +333,16 @@ export function renderUsuarios(container) {
 
           ${isEdit
             ? ''
-            : `
-              <div class="clg-grid-2">
-                ${field({
-                  name: 'password',
-                  label: 'Contraseña temporal',
-                  type: 'text',
-                  value: 'Love' + Math.floor(100000 + Math.random() * 900000) + '*',
-                  required: true,
-                  placeholder: 'Ej: Amor2026*',
-                  icon: 'fa-lock',
-                  hint: 'Se creará en Firebase Authentication sin cerrar tu sesión.'
-                })}
-                <div class="clg-field">
-                  <label>Envío de contraseña</label>
-                  <label class="clg-check" style="margin-top: 4px;">
-                    <input type="checkbox" name="sendResetEmail" checked>
-                    <span class="clg-check-box"><i class="fas fa-check"></i></span>
-                    <span class="clg-check-text" style="font-size: 0.8rem;">
-                      Enviar correo para definir contraseña propia
-                    </span>
-                  </label>
-                </div>
-              </div>
-            `}
+            : field({
+                name: 'password',
+                label: 'Contraseña provisional',
+                type: 'text',
+                value: 'Love' + Math.floor(100000 + Math.random() * 900000) + '*',
+                required: true,
+                placeholder: 'Ej: Amor2026*',
+                icon: 'fa-lock',
+                hint: 'La cuenta se creará en Firebase Authentication directamente con esta contraseña.'
+              })}
 
           ${field({
             name: 'role',
@@ -526,7 +513,7 @@ export function renderUsuarios(container) {
               permissions,
               activate: Boolean(data.isActive),
               password: data.password || '',
-              sendResetEmail: Boolean(data.sendResetEmail)
+              sendResetEmail: false
             },
             actor.role
           );

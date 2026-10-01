@@ -179,7 +179,7 @@ export async function seedInitialData(actor) {
       }
     }
 
-    // 3. Avisos y Ministerios
+    // 3. Avisos
     const annSnap = await getDocs(collection(db, 'announcements'));
     if (annSnap.empty) {
       for (const ann of DEFAULT_ANNOUNCEMENTS) {
@@ -193,12 +193,41 @@ export async function seedInitialData(actor) {
       }
     }
 
-    if (productsCount > 0 || eventsCount > 0 || announcementsCount > 0) {
+    // 4. Ministerios
+    let ministriesCount = 0;
+    const minSnap = await getDocs(collection(db, 'ministries'));
+    if (minSnap.empty) {
+      const { DEFAULT_MINISTRIES } = await import('./ministries.js');
+      const { doc, setDoc } = await import('firebase/firestore');
+      for (const min of DEFAULT_MINISTRIES) {
+        await setDoc(doc(db, 'ministries', min.id), {
+          ...min,
+          updatedAt: serverTimestamp()
+        });
+        ministriesCount++;
+      }
+    }
+
+    // 5. Galería
+    let galleryCount = 0;
+    const galSnap = await getDocs(collection(db, 'gallery_items'));
+    if (galSnap.empty) {
+      const { DEFAULT_GALLERY_ITEMS } = await import('./gallery.js');
+      for (const item of DEFAULT_GALLERY_ITEMS) {
+        await addDoc(collection(db, 'gallery_items'), {
+          ...item,
+          createdAt: serverTimestamp()
+        });
+        galleryCount++;
+      }
+    }
+
+    if (productsCount > 0 || eventsCount > 0 || announcementsCount > 0 || ministriesCount > 0 || galleryCount > 0) {
       await logAudit({
         actor: actor || { role: 'superadmin', displayName: 'Christian Romero' },
         action: 'seed.initial_data',
         module: 'system',
-        details: { products: productsCount, events: eventsCount, announcements: announcementsCount }
+        details: { products: productsCount, events: eventsCount, announcements: announcementsCount, ministries: ministriesCount, gallery: galleryCount }
       });
     }
 
@@ -206,10 +235,97 @@ export async function seedInitialData(actor) {
       productsCount,
       eventsCount,
       announcementsCount,
-      alreadySeeded: productsCount === 0 && eventsCount === 0 && announcementsCount === 0
+      ministriesCount,
+      galleryCount,
+      alreadySeeded: productsCount === 0 && eventsCount === 0 && announcementsCount === 0 && ministriesCount === 0 && galleryCount === 0
     };
   } catch (error) {
     console.error('[CL] Error al sembrar datos iniciales:', error);
     throw new Error(error.message || 'Error durante la sincronización de datos iniciales.');
   }
 }
+
+/**
+ * Restablece las colecciones del sistema a su estado de fábrica limpio.
+ * PRESERVA INTACTA LA COLECCIÓN 'users' Y LA AUTENTICACIÓN.
+ */
+export async function hardResetFactoryData(actor) {
+  requireService(db, 'Firestore');
+  const { deleteDoc, doc, setDoc } = await import('firebase/firestore');
+  const collectionsToWipe = [
+    'events',
+    'market_products',
+    'market_orders',
+    'announcements',
+    'prayers',
+    'gallery_items',
+    'ministries'
+  ];
+
+  for (const colName of collectionsToWipe) {
+    const snap = await getDocs(collection(db, colName));
+    for (const d of snap.docs) {
+      await deleteDoc(d.ref);
+    }
+  }
+
+  // Ahora sembramos nuevamente con datos limpios oficiales
+  const { DEFAULT_MINISTRIES } = await import('./ministries.js');
+  const { DEFAULT_GALLERY_ITEMS } = await import('./gallery.js');
+
+  // Market
+  for (const prod of DEFAULT_MARKET_PRODUCTS) {
+    await addDoc(collection(db, 'market_products'), {
+      ...prod,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+  }
+
+  // Eventos
+  for (const evt of DEFAULT_EVENTS) {
+    await addDoc(collection(db, 'events'), {
+      ...evt,
+      dateStart: evt.dateStart ? new Date(evt.dateStart) : new Date(),
+      dateEnd: evt.dateEnd ? new Date(evt.dateEnd) : null,
+      createdAt: serverTimestamp(),
+      updatedByName: actor?.displayName || 'Sistema'
+    });
+  }
+
+  // Avisos
+  for (const ann of DEFAULT_ANNOUNCEMENTS) {
+    await addDoc(collection(db, 'announcements'), {
+      ...ann,
+      publishDate: new Date(),
+      expirationDate: null,
+      createdAt: serverTimestamp()
+    });
+  }
+
+  // Ministerios
+  for (const min of DEFAULT_MINISTRIES) {
+    await setDoc(doc(db, 'ministries', min.id), {
+      ...min,
+      updatedAt: serverTimestamp()
+    });
+  }
+
+  // Galería
+  for (const item of DEFAULT_GALLERY_ITEMS) {
+    await addDoc(collection(db, 'gallery_items'), {
+      ...item,
+      createdAt: serverTimestamp()
+    });
+  }
+
+  await logAudit({
+    actor: actor || { role: 'superadmin', displayName: 'Christian Romero' },
+    action: 'system.hard_reset',
+    module: 'system',
+    details: { collectionsReset: collectionsToWipe }
+  });
+
+  return true;
+}
+

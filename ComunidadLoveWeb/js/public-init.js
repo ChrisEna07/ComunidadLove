@@ -27,12 +27,16 @@ import { escapeHTML, qs, qsa, showToast, skeletonList } from './lib/dom.js';
 import { smartDate, formatTime, formatDate, daysUntil, MONTH_NAMES, parseDate } from './lib/dates.js';
 import { contienePalabrasObscenas } from './lib/text.js';
 import { bindLiveFormValidation } from './lib/validation.js';
+import { watchMinistries } from './services/ministries.js';
+import { watchGallery } from './services/gallery.js';
 
 let settingsUnsub = null;
 let eventsUnsub = null;
 let announcementsUnsub = null;
 let productsUnsub = null;
 let prayersUnsub = null;
+let ministriesUnsub = null;
+let galleryUnsub = null;
 const reactionUnsubs = new Map();
 const warned = new Set();
 let lastPrayersList = [];
@@ -840,7 +844,174 @@ function bindPublicInteractions() {
     }
   });
 
-  initPublicMarketOrders();
+    initPublicMarketOrders();
+    initPublicGallery();
+  }
+
+  function initPublicGallery() {
+    const filterContainer = qs('.gallery-filters');
+    if (filterContainer && filterContainer.dataset.bound !== '1') {
+      filterContainer.dataset.bound = '1';
+      filterContainer.addEventListener('click', (e) => {
+        const btn = e.target.closest('.filter-btn');
+        if (!btn) return;
+        filterContainer.querySelectorAll('.filter-btn').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        const filter = btn.dataset.filter || 'all';
+        qsa('.gallery-grid .gallery-item').forEach((item) => {
+          const cat = item.dataset.category || '';
+          const cats = cat.split(' ');
+          if (filter === 'all' || cats.includes(filter)) {
+            item.style.display = 'block';
+          } else {
+            item.style.display = 'none';
+          }
+        });
+      });
+    }
+
+    const galleryGrid = qs('.gallery-grid');
+    if (galleryGrid && galleryGrid.dataset.bound !== '1') {
+      galleryGrid.dataset.bound = '1';
+      galleryGrid.addEventListener('click', (e) => {
+        const item = e.target.closest('.gallery-item');
+        if (!item) return;
+        const img = item.querySelector('img');
+        const title = item.querySelector('.gallery-title')?.textContent || '';
+        const lightbox = document.getElementById('lightbox');
+        if (lightbox && img) {
+          const lightboxImg = lightbox.querySelector('img');
+          const lightboxCaption = lightbox.querySelector('.lightbox-caption');
+          if (lightboxImg) lightboxImg.src = img.src;
+          if (lightboxCaption) lightboxCaption.textContent = title;
+          lightbox.classList.add('active');
+          document.body.style.overflow = 'hidden';
+        }
+      });
+    }
+  }
+
+/* --------------------------------------------------------------------------
+   MINISTERIOS DINÁMICOS (CMS FIRESTORE)
+   -------------------------------------------------------------------------- */
+function renderDynamicMinistries(ministries) {
+  if (!ministries || !ministries.length) return;
+  const map = new Map(ministries.map((m) => [m.id, m]));
+
+  // 1. Kids
+  const kids = map.get('kids');
+  if (kids) {
+    const card = qs('.kids-section .kids-card');
+    if (card) {
+      const badge = card.querySelector('.kids-badge');
+      if (badge && kids.badge) badge.textContent = kids.badge;
+      const desc = card.querySelector('.about-desc');
+      if (desc && kids.description) desc.textContent = kids.description;
+      const img = card.querySelector('.kids-main-img');
+      if (img && kids.imageUrl) img.src = kids.imageUrl;
+    }
+  }
+
+  // 2. Woman
+  const woman = map.get('woman');
+  if (woman) {
+    const card = qs('.woman-section .woman-card');
+    if (card) {
+      const badge = card.querySelector('.woman-badge');
+      if (badge && woman.badge) badge.textContent = woman.badge;
+      const desc = card.querySelector('.about-desc');
+      if (desc && woman.description) desc.textContent = woman.description;
+      const quote = card.querySelector('.woman-quote');
+      if (quote && woman.quote) quote.textContent = woman.quote;
+      const img = card.querySelector('.woman-media-container img');
+      if (img && woman.imageUrl) img.src = woman.imageUrl;
+    }
+  }
+
+  // 3. Adora
+  const adora = map.get('adora');
+  if (adora) {
+    const card = qs('.adora-section .adora-card');
+    if (card) {
+      const badge = card.querySelector('.adora-badge');
+      if (badge && adora.badge) badge.textContent = adora.badge;
+      const desc = card.querySelector('.adora-desc');
+      if (desc && adora.description) desc.textContent = adora.description;
+      const iframe = card.querySelector('.adora-video-container iframe');
+      if (iframe && adora.videoUrl) iframe.src = adora.videoUrl;
+    }
+  }
+
+  // 4. Buenas Nuevas
+  const bn = map.get('buenas-nuevas');
+  if (bn) {
+    const card = qs('.buenas-nuevas-section .news-card');
+    if (card) {
+      const badge = card.querySelector('.news-badge');
+      if (badge && bn.badge) badge.textContent = bn.badge;
+      const desc = card.querySelector('.about-desc');
+      if (desc && bn.description) desc.textContent = bn.description;
+      if (bn.stats) {
+        const statBoxes = card.querySelectorAll('.stat-box');
+        if (statBoxes[0] && bn.stats.homes) statBoxes[0].querySelector('.stat-number').textContent = bn.stats.homes;
+        if (statBoxes[1] && bn.stats.zones) statBoxes[1].querySelector('.stat-number').textContent = bn.stats.zones;
+        if (statBoxes[2] && bn.stats.volunteers) statBoxes[2].querySelector('.stat-number').textContent = bn.stats.volunteers;
+      }
+      if (bn.imageUrl) {
+        const img = card.querySelector('.news-media-card img');
+        if (img) img.src = bn.imageUrl;
+      }
+    }
+  }
+
+  // 5. Comunidad
+  const com = map.get('comunidad');
+  if (com) {
+    const desc = qs('.pastors-info .about-desc');
+    if (desc && com.description) desc.textContent = com.description;
+    const quote = qs('.pastors-quote');
+    if (quote && com.quote) quote.textContent = com.quote;
+    const img = qs('.pastors-image-wrapper img');
+    if (img && com.imageUrl) img.src = com.imageUrl;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   GALERÍA DINÁMICA (CMS FIRESTORE)
+   -------------------------------------------------------------------------- */
+function renderDynamicGallery(items) {
+  const grid = qs('.gallery-grid');
+  if (!grid || !items || !items.length) return;
+
+  const catLabels = {
+    comunidad: 'Comunidad',
+    ninos: 'Love Kids',
+    mujeres: 'Love Woman',
+    adoracion: 'Love Adora'
+  };
+
+  grid.innerHTML = items.map((item) => `
+    <div class="gallery-item" data-category="${escapeHTML(item.category || 'comunidad')}">
+      <img src="${escapeHTML(item.imageUrl)}" alt="${escapeHTML(item.title || 'Galería Comunidad Love')}" loading="lazy">
+      <div class="gallery-overlay">
+        <span class="gallery-tag">${escapeHTML(catLabels[item.category] || item.category || 'Comunidad')}</span>
+        <div class="gallery-title">${escapeHTML(item.title || '')}</div>
+      </div>
+    </div>
+  `).join('');
+
+  // Re-aplicar filtro activo si existe
+  const activeBtn = qs('.gallery-filters .filter-btn.active');
+  const activeFilter = activeBtn?.dataset?.filter || 'all';
+  grid.querySelectorAll('.gallery-item').forEach((item) => {
+    const cat = item.dataset.category || '';
+    const cats = cat.split(' ');
+    if (activeFilter === 'all' || cats.includes(activeFilter)) {
+      item.style.display = 'block';
+    } else {
+      item.style.display = 'none';
+    }
+  });
 }
 
 /* --------------------------------------------------------------------------
@@ -923,6 +1094,20 @@ export function initPublicSync() {
         }
       );
 
+      ministriesUnsub = watchMinistries(
+        (list) => renderDynamicMinistries(list),
+        (err) => {
+          console.error('[CL] Error en tiempo real de ministerios:', err);
+        }
+      );
+
+      galleryUnsub = watchGallery(
+        (items) => renderDynamicGallery(items),
+        (err) => {
+          console.error('[CL] Error en tiempo real de galería:', err);
+        }
+      );
+
       bindPublicInteractions();
     } catch (error) {
       console.error('[CL] Fallo al iniciar la sincronización pública:', error);
@@ -936,7 +1121,7 @@ export function initPublicSync() {
 }
 
 export function stopPublicSync() {
-  [settingsUnsub, eventsUnsub, announcementsUnsub].forEach((unsub) => {
+  [settingsUnsub, eventsUnsub, announcementsUnsub, productsUnsub, prayersUnsub, ministriesUnsub, galleryUnsub].forEach((unsub) => {
     try {
       if (typeof unsub === 'function') unsub();
     } catch (error) {
@@ -946,6 +1131,10 @@ export function stopPublicSync() {
   settingsUnsub = null;
   eventsUnsub = null;
   announcementsUnsub = null;
+  productsUnsub = null;
+  prayersUnsub = null;
+  ministriesUnsub = null;
+  galleryUnsub = null;
 }
 
 initPublicSync();

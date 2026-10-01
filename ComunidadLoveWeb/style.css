@@ -2835,12 +2835,15 @@ section:not(.hero).reveal-visible {
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 18px;
 }
-.upcoming-card,
-.event-card {
+.event-card,
+.upcoming-card {
   position: relative;
   display: flex;
+  flex-direction: row;
   align-items: flex-start;
-  gap: 16px;
+  gap: 1rem;
+  width: 100%;
+  box-sizing: border-box;
   background: var(--light);
   border-radius: var(--border-radius-md);
   padding: 18px;
@@ -2849,24 +2852,24 @@ section:not(.hero).reveal-visible {
   overflow: hidden;
   transition: var(--transition-smooth);
 }
-.upcoming-card:hover,
-.event-card:hover {
+.event-card:hover,
+.upcoming-card:hover {
   transform: translateY(-3px);
   box-shadow: var(--shadow-lg);
 }
-.upcoming-date,
-.event-date-badge {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-width: 66px;
+.event-date-badge,
+.upcoming-date {
+  flex-shrink: 0;
   width: 66px;
+  min-width: 66px;
   height: 66px;
   border-radius: 14px;
   background: var(--primary);
   color: var(--light);
-  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   padding: 6px 4px;
   box-sizing: border-box;
@@ -2884,13 +2887,14 @@ section:not(.hero).reveal-visible {
   font-weight: 800;
   line-height: 1;
 }
-.upcoming-body,
-.event-card-content {
+.event-card-content,
+.upcoming-body {
+  flex: 1 1 auto;
+  min-width: 0; /* Previene colapso en flexbox */
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  flex: 1;
-  min-width: 0;
+  gap: 0.35rem;
+  width: 100%;
 }
 .upcoming-tags {
   display: flex;
@@ -2916,9 +2920,12 @@ section:not(.hero).reveal-visible {
   background: rgba(16, 172, 132, 0.12);
   color: var(--news-primary);
 }
-.upcoming-body h4,
-.event-title {
-  word-break: normal;
+.event-title,
+.upcoming-body h4 {
+  display: block;
+  width: 100%;
+  white-space: normal;
+  word-break: keep-all;
   overflow-wrap: break-word;
   font-size: 1.15rem;
   line-height: 1.3;

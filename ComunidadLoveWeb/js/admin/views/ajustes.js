@@ -1,22 +1,47 @@
 /* ==========================================================================
-   VISTA: AJUSTES DEL SITIO (site_settings/general)
+   VISTA: AJUSTES DEL SITIO Y CMS GENERAL (CLGESTIÓN)
+   --------------------------------------------------------------------------
+   - Ajustes generales (horarios, avisos, streaming, contacto, redes).
+   - CMS de Ministerios (Kids, Woman, Buenas Nuevas, Adora, Nuestra Comunidad).
+   - CMS de Galería dinámica (fotos categorizadas).
+   - Respaldo y restauración offline-first (JSON).
+   - Zona de peligro (Super Admin): Restablecer datos de fábrica (Hard Reset).
    ========================================================================== */
 
 import { saveSettings } from '../../services/site.js';
 import { can } from '../../lib/auth.js';
-import { escapeHTML as _escapeHTML, qs, qsa, showToast, confirmDialog } from '../../lib/dom.js';
-import { subscribe } from '../store.js';
+import { escapeHTML, qs, qsa, showToast, confirmDialog } from '../../lib/dom.js';
+import { subscribe, getState } from '../store.js';
 import { pageHeader, card, field, checkboxField, markInvalid, clearInvalid, setLoading, readForm } from '../ui.js';
 import { exportFirestoreBackup, downloadBackupJSON, restoreFirestoreBackup } from '../../services/backup.js';
-import { seedInitialData } from '../../services/seed.js';
+import { seedInitialData, hardResetFactoryData } from '../../services/seed.js';
+import { watchMinistries, updateMinistry, DEFAULT_MINISTRIES } from '../../services/ministries.js';
+import { watchGallery, addGalleryItem, deleteGalleryItem, GALLERY_CATEGORIES, DEFAULT_GALLERY_ITEMS } from '../../services/gallery.js';
+import { bindImageInputs, imageInput, prepareImageValue } from '../image-input.js';
+import { bindLiveFormValidation } from '../../lib/validation.js';
+
+let ministriesCache = DEFAULT_MINISTRIES;
+let galleryCache = DEFAULT_GALLERY_ITEMS;
+let activeTab = 'general';
 
 export function renderAjustes(container) {
   container.innerHTML = `
     ${pageHeader({
-      title: 'Ajustes del Sitio',
-      subtitle: 'Estos valores alimentan la landing page en tiempo real',
+      title: 'Ajustes del Sitio & CMS',
+      subtitle: 'Administra en tiempo real los contenidos, ministerios y galería de la web pública',
       icon: 'fa-sliders'
     })}
+    <div class="clg-tabs" id="clg-ajustes-tabs" style="display:flex; gap:10px; margin-bottom:20px; border-bottom:1px solid var(--clg-line); padding-bottom:12px; flex-wrap:wrap;">
+      <button type="button" class="clg-btn ${activeTab === 'general' ? 'clg-btn-primary' : 'clg-btn-ghost'}" data-tab="general">
+        <i class="fas fa-sliders"></i><span>Configuración General</span>
+      </button>
+      <button type="button" class="clg-btn ${activeTab === 'ministries' ? 'clg-btn-primary' : 'clg-btn-ghost'}" data-tab="ministries">
+        <i class="fas fa-church"></i><span>CMS Ministerios</span>
+      </button>
+      <button type="button" class="clg-btn ${activeTab === 'gallery' ? 'clg-btn-primary' : 'clg-btn-ghost'}" data-tab="gallery">
+        <i class="fas fa-images"></i><span>CMS Galería</span>
+      </button>
+    </div>
     <div id="clg-ajustes-body">
       <div class="clg-skeleton-line clg-skeleton-line-lg"></div>
       <div class="clg-skeleton-line"></div>
@@ -26,19 +51,58 @@ export function renderAjustes(container) {
 
   const body = qs('#clg-ajustes-body', container);
 
-  const unsubscribe = subscribe(['settings', 'settingsExists', 'ready', 'profile'], (state) => {
+  qs('#clg-ajustes-tabs', container)?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-tab]');
+    if (!btn) return;
+    activeTab = btn.dataset.tab;
+    qsa('#clg-ajustes-tabs button', container).forEach((b) => {
+      const isActive = b.dataset.tab === activeTab;
+      b.className = `clg-btn ${isActive ? 'clg-btn-primary' : 'clg-btn-ghost'}`;
+    });
+    renderCurrentTab();
+  });
+
+  // Suscripción en tiempo real a ministerios y galería
+  const unsubMinistries = watchMinistries((list) => {
+    ministriesCache = list;
+    if (activeTab === 'ministries') renderCurrentTab();
+  });
+
+  const unsubGallery = watchGallery((items) => {
+    galleryCache = items;
+    if (activeTab === 'gallery') renderCurrentTab();
+  });
+
+  const unsubscribeStore = subscribe(['settings', 'settingsExists', 'ready', 'profile'], (state) => {
     if (!state.ready) return;
+    renderCurrentTab();
+  });
+
+  function renderCurrentTab() {
+    const state = getState();
     const editable = can(state.profile?.role, 'content.write');
-    const settings = state.settings || {};
-    const hours = Array.isArray(settings.serviceHours) ? settings.serviceHours : [];
+    const isSuperAdmin = state.profile?.role === 'superadmin';
 
     if (!editable) {
       body.innerHTML = card({
-        title: 'Configuración actual',
+        title: 'Configuración del sitio',
         body: '<p class="clg-cell-muted">Tu rol no permite modificar la configuración del sitio.</p>'
       });
       return;
     }
+
+    if (activeTab === 'general') {
+      renderGeneralSettingsTab(state, isSuperAdmin);
+    } else if (activeTab === 'ministries') {
+      renderMinistriesTab();
+    } else if (activeTab === 'gallery') {
+      renderGalleryTab();
+    }
+  }
+
+  function renderGeneralSettingsTab(state, isSuperAdmin) {
+    const settings = state.settings || {};
+    const hours = Array.isArray(settings.serviceHours) ? settings.serviceHours : [];
 
     body.innerHTML = `
       <form class="clg-form clg-ajustes-form" id="clg-ajustes-form" novalidate>
@@ -56,7 +120,7 @@ export function renderAjustes(container) {
 
         ${card({
           title: 'Transmisión en vivo',
-          subtitle: 'Video shown en la sección "Ver Nuestras Reuniones"',
+          subtitle: 'Video mostrado en la sección "Ver Nuestras Reuniones"',
           body: `
             ${field({ keyPrefix: 'st', name: 'streamingUrl', label: 'URL del video (YouTube embed)', value: settings.streamingUrl || '', placeholder: 'https://www.youtube.com/embed/ID_DEL_VIDEO' })}
             ${field({ keyPrefix: 'st', name: 'streamingChannelUrl', label: 'Enlace al canal de YouTube', value: settings.streamingChannelUrl || '', placeholder: 'https://youtube.com/@tu-canal' })}
@@ -109,6 +173,12 @@ export function renderAjustes(container) {
           `
         })}
 
+        <div class="clg-submit-bar clg-submit-bar-static">
+          <button type="submit" class="clg-btn clg-btn-primary clg-btn-lg">
+            <i class="fas fa-save"></i><span>Guardar ajustes</span>
+          </button>
+        </div>
+
         ${card({
           title: 'Respaldo y Restauración de Datos (JSON / Offline-First)',
           subtitle: 'Exporta o restaura las colecciones del sistema en tu equipo local',
@@ -133,17 +203,268 @@ export function renderAjustes(container) {
           `
         })}
 
-        <div class="clg-submit-bar clg-submit-bar-static">
-          <button type="submit" class="clg-btn clg-btn-primary clg-btn-lg">
-            <i class="fas fa-save"></i><span>Guardar ajustes</span>
-          </button>
-        </div>
+        ${
+          isSuperAdmin
+            ? `
+            <div class="clg-card" style="border: 2px solid #ef4444; background: #fff5f5; border-radius: var(--clg-radius); padding: 20px; margin-top: 24px;">
+              <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                <i class="fas fa-triangle-exclamation" style="font-size: 1.4rem; color: #dc2626;"></i>
+                <h3 style="color: #991b1b; font-size: 1.15rem; margin: 0;">Zona de Mantenimiento Técnico (Solo Super Admin)</h3>
+              </div>
+              <p style="font-size: 0.88rem; color: #7f1d1d; line-height: 1.5; margin-bottom: 16px;">
+                <strong>Restablecer Datos de Fábrica:</strong> Elimina todas las colecciones con datos de prueba (eventos, pedidos, productos de market, peticiones, avisos, ministerios y galería) y siembra los contenidos oficiales limpios. <em>La base de datos de usuarios y autenticación permanecerá intacta.</em>
+              </p>
+              <button type="button" class="clg-btn clg-btn-danger" id="btn-hard-reset">
+                <i class="fas fa-rotate-left"></i><span>Restablecer Datos de Fábrica</span>
+              </button>
+            </div>
+            `
+            : ''
+        }
       </form>
     `;
 
     bindHours(qs('#clg-ajustes-form', body));
     bindBackupActions(body, state.profile);
-  });
+    bindLiveFormValidation(body);
+  }
+
+  function renderMinistriesTab() {
+    body.innerHTML = `
+      <div class="clg-ministries-cms">
+        ${ministriesCache
+          .map(
+            (min) => `
+          <div class="clg-card" style="margin-bottom: 24px;">
+            <div class="clg-card-header" style="display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <h3 style="margin:0; font-size:1.15rem; color:var(--clg-secondary);">${escapeHTML(min.name)}</h3>
+                <small class="clg-hint">${escapeHTML(min.badge || 'Ministerio oficial')}</small>
+              </div>
+              <span class="clg-tag clg-tag-primary">${escapeHTML(min.id)}</span>
+            </div>
+            <div class="clg-card-body">
+              <form class="clg-form clg-ministry-form" data-ministry-id="${min.id}">
+                <div class="clg-grid-2">
+                  ${field({ keyPrefix: min.id, name: 'name', label: 'Nombre del Ministerio', value: min.name || '', required: true })}
+                  ${field({ keyPrefix: min.id, name: 'badge', label: 'Insignia / Etiqueta', value: min.badge || '' })}
+                </div>
+                ${field({ keyPrefix: min.id, name: 'description', label: 'Descripción Principal', type: 'textarea', rows: 3, value: min.description || '', required: true })}
+                
+                ${min.id === 'woman' || min.id === 'comunidad'
+                  ? field({ keyPrefix: min.id, name: 'quote', label: 'Cita / Versículo destacado', value: min.quote || '' })
+                  : ''}
+                
+                ${min.id === 'adora'
+                  ? field({ keyPrefix: min.id, name: 'videoUrl', label: 'Enlace del Video (YouTube Embed)', value: min.videoUrl || '', placeholder: 'https://www.youtube.com/embed/...' })
+                  : ''}
+
+                ${min.id === 'buenas-nuevas'
+                  ? `
+                  <div class="clg-grid-3">
+                    ${field({ keyPrefix: min.id, name: 'stat_homes', label: 'Hogares Visitados', value: min.stats?.homes || '500+' })}
+                    ${field({ keyPrefix: min.id, name: 'stat_zones', label: 'Zonas e Impacto', value: min.stats?.zones || '15+' })}
+                    ${field({ keyPrefix: min.id, name: 'stat_volunteers', label: 'Voluntarios', value: min.stats?.volunteers || '80+' })}
+                  </div>
+                  `
+                  : ''}
+
+                ${imageInput({
+                  keyPrefix: min.id,
+                  name: 'imageUrl',
+                  label: 'Imagen Principal',
+                  value: min.imageUrl || '',
+                  hint: 'Pega una dirección web o sube una imagen (se comprimirá a < 200 KB).'
+                })}
+
+                <div style="margin-top: 12px; text-align: right;">
+                  <button type="submit" class="clg-btn clg-btn-primary">
+                    <i class="fas fa-floppy-disk"></i><span>Guardar ${escapeHTML(min.name)}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        `
+          )
+          .join('')}
+      </div>
+    `;
+
+    bindImageInputs(body);
+    bindLiveFormValidation(body);
+
+    body.querySelectorAll('.clg-ministry-form').forEach((form) => {
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const id = form.dataset.ministryId;
+        const data = readForm(form);
+        const prefix = `${id}-`;
+
+        const patch = {
+          name: data[`${prefix}name`],
+          badge: data[`${prefix}badge`],
+          description: data[`${prefix}description`],
+          quote: data[`${prefix}quote`] || '',
+          videoUrl: data[`${prefix}videoUrl`] || '',
+          imageUrl: data[`${prefix}imageUrl`] || ''
+        };
+
+        if (id === 'buenas-nuevas') {
+          patch.stats = {
+            homes: data[`${prefix}stat_homes`] || '500+',
+            zones: data[`${prefix}stat_zones`] || '15+',
+            volunteers: data[`${prefix}stat_volunteers`] || '80+'
+          };
+        }
+
+        try {
+          patch.imageUrl = prepareImageValue(patch.imageUrl);
+        } catch (err) {
+          showToast(err.message, 'danger');
+          return;
+        }
+
+        setLoading(form, true, 'Guardando…');
+        try {
+          await updateMinistry(id, patch);
+          showToast(`Ministerio "${patch.name}" actualizado en Firestore y en la web.`, 'success');
+        } catch (err) {
+          showToast(err.message || 'Error al actualizar ministerio.', 'danger');
+        } finally {
+          setLoading(form, false);
+        }
+      });
+    });
+  }
+
+  function renderGalleryTab() {
+    body.innerHTML = `
+      <div class="clg-gallery-cms">
+        ${card({
+          title: 'Añadir Nueva Foto a la Galería',
+          subtitle: 'Las fotos se publicarán de inmediato en la sección "Galería Eventos Love"',
+          body: `
+            <form class="clg-form" id="clg-gallery-add-form">
+              <div class="clg-grid-2">
+                ${field({ name: 'gal-title', label: 'Título de la foto o momento', placeholder: 'Ej. Celebración Dominical', required: true })}
+                ${field({
+                  name: 'gal-category',
+                  label: 'Categoría',
+                  type: 'select',
+                  options: GALLERY_CATEGORIES,
+                  value: 'comunidad'
+                })}
+              </div>
+              ${imageInput({
+                name: 'gal-imageUrl',
+                label: 'Archivo de imagen o URL',
+                hint: 'Sube la foto desde tu equipo (se optimizará a < 200 KB) o pega una URL.'
+              })}
+              <div style="margin-top: 10px;">
+                <button type="submit" class="clg-btn clg-btn-primary">
+                  <i class="fas fa-plus"></i><span>Publicar en la Galería</span>
+                </button>
+              </div>
+            </form>
+          `
+        })}
+
+        ${card({
+          title: `Fotos Publicadas (${galleryCache.length})`,
+          subtitle: 'Gestiona las imágenes visibles para los visitantes',
+          body: `
+            <div class="clg-gallery-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px;">
+              ${galleryCache
+                .map(
+                  (item) => `
+                <div class="clg-gallery-card" style="border: 1px solid var(--clg-line); border-radius: var(--clg-radius-sm); overflow: hidden; background: #fff; display: flex; flex-direction: column;">
+                  <div style="height: 140px; background: #f1f5f9; overflow: hidden; position: relative;">
+                    <img src="${escapeHTML(item.imageUrl)}" alt="${escapeHTML(item.title)}" style="width: 100%; height: 100%; object-fit: cover;" loading="lazy">
+                    <span style="position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,0.65); color: #fff; font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 999px;">
+                      ${escapeHTML(GALLERY_CATEGORIES.find((c) => c.value === item.category)?.label || item.category)}
+                    </span>
+                  </div>
+                  <div style="padding: 10px 12px; flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
+                    <strong style="font-size: 0.85rem; color: var(--clg-secondary); line-height: 1.3; margin-bottom: 8px;">${escapeHTML(item.title)}</strong>
+                    <button type="button" class="clg-btn clg-btn-danger-soft clg-btn-sm" data-delete-gallery="${item.id}" style="align-self: flex-start;">
+                      <i class="fas fa-trash-can"></i><span>Eliminar</span>
+                    </button>
+                  </div>
+                </div>
+              `
+                )
+                .join('')}
+            </div>
+          `
+        })}
+      </div>
+    `;
+
+    bindImageInputs(body);
+    bindLiveFormValidation(body);
+
+    // Formulario de agregar a galería
+    const addForm = qs('#clg-gallery-add-form', body);
+    addForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearInvalid(addForm);
+      const data = readForm(addForm);
+      const title = data['gal-title'];
+      const category = data['gal-category'];
+      let imageUrl = data['gal-imageUrl'];
+
+      if (!title) {
+        markInvalid(addForm, 'Ingresa un título para la foto.');
+        return;
+      }
+      if (!imageUrl) {
+        markInvalid(addForm, 'Sube una imagen o pega una URL.');
+        return;
+      }
+
+      try {
+        imageUrl = prepareImageValue(imageUrl);
+      } catch (err) {
+        markInvalid(addForm, err.message);
+        return;
+      }
+
+      setLoading(addForm, true, 'Subiendo…');
+      try {
+        await addGalleryItem({ title, category, imageUrl });
+        showToast('Foto agregada a la galería con éxito.', 'success');
+        addForm.reset();
+      } catch (err) {
+        markInvalid(addForm, err.message || 'Error al guardar la foto.');
+      } finally {
+        setLoading(addForm, false);
+      }
+    });
+
+    // Eliminar de galería
+    body.addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-delete-gallery]');
+      if (!btn) return;
+      const id = btn.dataset.deleteGallery;
+      const ok = await confirmDialog({
+        title: 'Eliminar foto',
+        message: '¿Estás seguro de retirar esta foto de la galería web?',
+        confirmText: 'Eliminar',
+        danger: true
+      });
+      if (!ok) return;
+
+      btn.disabled = true;
+      try {
+        await deleteGalleryItem(id);
+        showToast('Foto eliminada de la galería.', 'success');
+      } catch (err) {
+        showToast(err.message || 'Error al eliminar foto.', 'danger');
+        btn.disabled = false;
+      }
+    });
+  }
 
   function bindHours(form) {
     const list = qs('#clg-hours-list', form);
@@ -167,12 +488,12 @@ export function renderAjustes(container) {
       row.querySelector('[name$="-day"]')?.focus();
     });
 
-    list.addEventListener('click', (event) => {
+    list?.addEventListener('click', (event) => {
       const button = event.target.closest('[data-remove-hour]');
       if (button) button.closest('.clg-hour-row')?.remove();
     });
 
-    form.addEventListener('submit', async (event) => {
+    form?.addEventListener('submit', async (event) => {
       event.preventDefault();
       clearInvalid(form);
       setLoading(form, true, 'Guardando…');
@@ -220,6 +541,7 @@ export function renderAjustes(container) {
     const btnExport = qs('#btn-export-backup', containerEl);
     const inputRestore = qs('#input-restore-backup', containerEl);
     const btnSeed = qs('#btn-seed-data', containerEl);
+    const btnHardReset = qs('#btn-hard-reset', containerEl);
 
     btnExport?.addEventListener('click', async () => {
       btnExport.disabled = true;
@@ -285,7 +607,37 @@ export function renderAjustes(container) {
         btnSeed.disabled = false;
       }
     });
+
+    // Hard Reset a estado de fábrica (Exclusivo Super Admin)
+    btnHardReset?.addEventListener('click', async () => {
+      const input = window.prompt(
+        '⚠️ ATENCIÓN: RESTABLECER DATOS DE FÁBRICA\n\n' +
+        'Esta acción vaciará todas las colecciones con datos de prueba (eventos, pedidos, productos de market, peticiones, avisos, ministerios y galería) ' +
+        'y sembrará los contenidos oficiales originales limpios.\n\n' +
+        'La base de datos de usuarios y accesos NO será alterada.\n\n' +
+        'Para confirmar, escribe exactamente la palabra: RESET'
+      );
+
+      if (input === 'RESET') {
+        btnHardReset.disabled = true;
+        showToast('Iniciando restablecimiento de fábrica...', 'info');
+        try {
+          await hardResetFactoryData(actor);
+          showToast('¡Sistema restablecido a datos de fábrica con éxito!', 'success');
+        } catch (err) {
+          showToast(err.message || 'Error durante el restablecimiento.', 'danger');
+        } finally {
+          btnHardReset.disabled = false;
+        }
+      } else if (input !== null) {
+        showToast('Acción cancelada. La palabra clave no coincidió con "RESET".', 'warning');
+      }
+    });
   }
 
-  return unsubscribe;
+  return () => {
+    unsubMinistries();
+    unsubGallery();
+    unsubscribeStore();
+  };
 }

@@ -204,5 +204,5 @@ export function stopDataStream() {
 
 /** Líderes disponibles para asignar miembros (colección `team`). */
 export function leaders() {
-  return state.team;
+  return (state.team || []).filter((l) => l.role !== 'superadmin');
 }
