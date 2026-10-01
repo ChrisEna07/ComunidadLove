@@ -248,7 +248,9 @@ service cloud.firestore {
     match /prayers/{prayerId} {
       allow read: if can('prayers.reply') || resource.data.get('isPublic', false) == true;
       allow create: if validPublicPrayer();
-      allow update, delete: if can('prayers.reply');
+      allow update: if can('prayers.reply')
+        || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions', 'totalReactions']);
+      allow delete: if can('prayers.reply');
     }
 
     /* ------------------------------------------------------------------

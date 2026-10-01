@@ -25,6 +25,7 @@ import {
   deleteDoc,
   doc,
   getDoc,
+  increment,
   onSnapshot,
   orderBy,
   query,
@@ -136,8 +137,16 @@ function emptyReactions() {
 
 function decorate(id, data) {
   const counts = { ...emptyReactions(), ...(data.reactions || {}) };
+  Object.keys(counts).forEach((k) => {
+    if (typeof counts[k] !== 'number' || counts[k] < 0) counts[k] = 0;
+  });
   const rawType = String(data.type || data.category || 'petición').toLowerCase();
   const isQuestion = rawType === 'inquietud' || rawType === 'pregunta';
+  const computedTotal = REACTIONS.reduce((sum, r) => sum + (counts[r.kind] || 0), 0);
+  const totalReactions = typeof data.totalReactions === 'number' && data.totalReactions >= 0
+    ? data.totalReactions
+    : computedTotal;
+
   return {
     id,
     name: data.name || 'Anónimo',
@@ -148,7 +157,7 @@ function decorate(id, data) {
     isPublic: data.isPublic !== false,
     replies: Array.isArray(data.replies) ? data.replies : [],
     reactions: counts,
-    totalReactions: REACTIONS.reduce((sum, r) => sum + (counts[r.kind] || 0), 0),
+    totalReactions: Math.max(totalReactions, computedTotal),
     createdAt: data.createdAt ? parseDate(data.createdAt) : new Date(),
     respondedAt: data.respondedAt ? parseDate(data.respondedAt) : null
   };
@@ -236,21 +245,19 @@ export function watchReactions(prayerId, callback, onError) {
   }
 }
 
+/** Reacciones ya marcadas por este visitante en este dispositivo (sincrónico). */
+export function getMyReactionsSync(prayerId) {
+  try {
+    const localKey = `cl_react_${prayerId}`;
+    const stored = localStorage.getItem(localKey);
+    if (stored) return JSON.parse(stored);
+  } catch {}
+  return [];
+}
+
 /** Reacciones ya marcadas por este visitante (para pintar el botón activo). */
 export async function myReactions(prayerId) {
-  const visitor = visitorId();
-  const out = [];
-  await Promise.all(
-    REACTION_KINDS.map(async (kind) => {
-      try {
-        const snap = await getDoc(doc(db, COLLECTION, prayerId, REACTIONS_SUBCOLLECTION, reactionDocId(kind, visitor)));
-        if (snap.exists()) out.push(kind);
-      } catch {
-        // Sin permiso o sin red: se trata como "no reaccionado".
-      }
-    })
-  );
-  return out;
+  return getMyReactionsSync(prayerId);
 }
 
 /* --------------------------------------------------------------------------
@@ -279,6 +286,7 @@ export async function createPrayer({ name, type, text }) {
       isPublic: true,
       replies: [],
       reactions: emptyReactions(),
+      totalReactions: 0,
       createdAt: serverTimestamp()
     });
     return ref.id;
@@ -293,12 +301,34 @@ export async function toggleReaction(prayerId, kind, active) {
   requireService(db, 'Firestore');
   if (!REACTION_KINDS.includes(kind)) throw new Error('Reacción no válida.');
   const ref = doc(db, COLLECTION, prayerId, REACTIONS_SUBCOLLECTION, reactionDocId(kind));
+  const prayerRef = doc(db, COLLECTION, prayerId);
   try {
-    if (active) {
-      await setDoc(ref, { kind, createdAt: serverTimestamp() });
-    } else {
-      await deleteDoc(ref);
-    }
+    const delta = active ? 1 : -1;
+    // Actualizar almacenamiento local para respuesta instantánea de UI
+    try {
+      const localKey = `cl_react_${prayerId}`;
+      const existing = getMyReactionsSync(prayerId);
+      let updated;
+      if (active) {
+        updated = Array.from(new Set([...existing, kind]));
+      } else {
+        updated = existing.filter((k) => k !== kind);
+      }
+      localStorage.setItem(localKey, JSON.stringify(updated));
+    } catch {}
+
+    const subCollPromise = active
+      ? setDoc(ref, { kind, createdAt: serverTimestamp() })
+      : deleteDoc(ref);
+
+    const parentPromise = updateDoc(prayerRef, {
+      [`reactions.${kind}`]: increment(delta),
+      totalReactions: increment(delta)
+    }).catch((err) => {
+      console.warn('[CL] No se pudo actualizar contador en doc padre:', err);
+    });
+
+    await Promise.allSettled([subCollPromise, parentPromise]);
     return true;
   } catch (error) {
     console.warn('[CL] Error en la reacción:', error);

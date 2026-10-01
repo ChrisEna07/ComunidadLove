@@ -80,6 +80,35 @@ export class ImageError extends Error {
 }
 
 /**
+ * Convierte enlaces compartidos de Google Drive a URLs de imagen directas.
+ */
+export function normalizeImageUrl(url) {
+  if (!url || typeof url !== 'string') return '';
+  const trimmed = url.trim();
+  const driveMatch = trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || trimmed.match(/id=([a-zA-Z0-9_-]+)/);
+  if (driveMatch && driveMatch[1]) {
+    return `https://drive.google.com/thumbnail?id=${driveMatch[1]}&sz=w1000`;
+  }
+  return trimmed;
+}
+
+/**
+ * Normaliza rutas relativas de Assets para que resuelvan tanto en raíz (/)
+ * como dentro del subdirectorio (/admin/).
+ */
+export function resolveAssetUrl(url) {
+  if (!url || typeof url !== 'string') return '';
+  const trimmed = url.trim();
+  if (/^(\.\/)?Assets\//i.test(trimmed)) {
+    if (typeof window !== 'undefined' && window.location && window.location.pathname.includes('/admin')) {
+      return trimmed.replace(/^(\.\/)?Assets\//i, '../Assets/');
+    }
+    return trimmed.replace(/^(\.\/)?Assets\//i, './Assets/');
+  }
+  return trimmed;
+}
+
+/**
  * Valida un valor destined a Firestore, sin depender del navegador.
  * Es la barrera que se ejecuta en los servicios: aunque alguien escriba
  * directamente contra Firestore desde otro cliente, el documento no crece.
@@ -91,7 +120,7 @@ export class ImageError extends Error {
 export function sanitizeImageValue(value, options = {}) {
   const maxBytes = options.maxDataUrlBytes || IMAGE_LIMITS.maxDataUrlBytes;
   const label = options.field ? ` de ${options.field}` : '';
-  const raw = String(value || '').trim();
+  let raw = String(value || '').trim();
 
   if (!raw) return '';
 
@@ -110,11 +139,15 @@ export function sanitizeImageValue(value, options = {}) {
     return raw;
   }
 
-  if (!isHttpUrl(raw)) {
+  // Normalizar URLs de Google Drive antes de persistir
+  if (isHttpUrl(raw)) {
+    raw = normalizeImageUrl(raw);
+  } else {
     throw new ImageError(
       `La imagen${label} debe ser una dirección que empiece por http:// o https://.`
     );
   }
+
   // Una URL falsa gigante también rompería el documento: mismo tope.
   if (raw.length > 2048) {
     throw new ImageError(`La dirección${label} es demasiado larga (máximo 2048 caracteres).`);
@@ -141,6 +174,14 @@ export function installImageFallback(root = document) {
     (event) => {
       const image = event.target;
       if (!image || image.tagName !== 'IMG') return;
+
+      // Auto-recuperación de 404 por ruta relativa en /admin/
+      if (image.src && image.src.includes('/admin/Assets/') && !image.dataset.retriedAsset) {
+        image.dataset.retriedAsset = '1';
+        image.src = image.src.replace('/admin/Assets/', '/Assets/');
+        return;
+      }
+
       const mode = image.dataset ? image.dataset.imgFallback : '';
       if (!mode) return;
 

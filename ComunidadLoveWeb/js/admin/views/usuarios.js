@@ -103,11 +103,11 @@ export function renderUsuarios(container) {
   });
 
   container.addEventListener('click', async (event) => {
-    const trigger = event.target.closest('[data-action]');
+    const trigger = event.target.closest('[data-action], .btn-edit');
     if (!trigger) return;
 
-    const action = trigger.dataset.action;
-    const uid = trigger.dataset.uid;
+    const action = trigger.dataset.action || (trigger.classList.contains('btn-edit') ? 'edit' : '');
+    const uid = trigger.dataset.uid || trigger.dataset.id || trigger.closest('tr')?.dataset?.uid || trigger.closest('tr')?.dataset?.userId;
 
     if (action === 'add-user') {
       openDrawer({ user: null, me, canManage, canGrantAdmin });
@@ -115,7 +115,11 @@ export function renderUsuarios(container) {
 
     if (action === 'edit') {
       const user = getState().users.find((u) => u.uid === uid);
-      if (user) openDrawer({ user, me, canManage, canGrantAdmin });
+      if (user) {
+        openDrawer({ user, me, canManage, canGrantAdmin });
+      } else {
+        console.warn('[CL] No se encontró el usuario con UID:', uid);
+      }
     }
 
     if (action === 'deactivate') {
@@ -324,6 +328,7 @@ export function renderUsuarios(container) {
             type: 'email',
             value: user?.email || '',
             required: isEdit ? false : true,
+            disabled: isEdit ? true : false,
             placeholder: 'persona@correo.com',
             icon: 'fa-envelope',
             hint: isEdit
@@ -580,7 +585,7 @@ function renderTable(users, me, canManage) {
                 icon: 'fa-user-pen',
                 label: `Editar mi perfil (${u.displayName || 'Christian Romero'})`,
                 action: 'edit',
-                data: `data-uid="${u.uid}"`
+                data: { uid: u.uid, id: u.uid }
               })
             );
           }
@@ -590,7 +595,7 @@ function renderTable(users, me, canManage) {
               icon: 'fa-pen',
               label: `Editar ${u.displayName}`,
               action: 'edit',
-              data: `data-uid="${u.uid}"`
+              data: { uid: u.uid, id: u.uid }
             })
           );
           if (u.isActive) {
@@ -599,7 +604,7 @@ function renderTable(users, me, canManage) {
                 icon: 'fa-user-slash',
                 label: `Desactivar ${u.displayName}`,
                 action: 'deactivate',
-                data: `data-uid="${u.uid}"`
+                data: { uid: u.uid, id: u.uid }
               })
             );
           } else {
@@ -608,7 +613,7 @@ function renderTable(users, me, canManage) {
                 icon: 'fa-user-check',
                 label: `Reactivar ${u.displayName}`,
                 action: 'reactivate',
-                data: `data-uid="${u.uid}"`
+                data: { uid: u.uid, id: u.uid }
               })
             );
           }
@@ -617,7 +622,7 @@ function renderTable(users, me, canManage) {
               icon: 'fa-key',
               label: `Restablecer contraseña de ${u.displayName}`,
               action: 'reset',
-              data: `data-uid="${u.uid}"`
+              data: { uid: u.uid, id: u.uid }
             })
           );
           if (u.uid !== me.uid) {
@@ -626,7 +631,7 @@ function renderTable(users, me, canManage) {
                 icon: 'fa-trash',
                 label: `Eliminar ${u.displayName}`,
                 action: 'delete',
-                data: `data-uid="${u.uid}"`
+                data: { uid: u.uid, id: u.uid }
               })
             );
           }

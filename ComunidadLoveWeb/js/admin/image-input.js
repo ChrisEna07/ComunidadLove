@@ -21,7 +21,9 @@ import {
   compressImageFile,
   describeImageSource,
   isDataUrl,
-  sanitizeImageValue
+  sanitizeImageValue,
+  normalizeImageUrl,
+  resolveAssetUrl
 } from '../lib/image.js';
 
 const PLACEHOLDER = `<div class="clg-image-empty">
@@ -95,7 +97,8 @@ export function imageInput({ name, keyPrefix = '', label, value = '', hint = '',
 function renderPreview(value) {
   const raw = String(value || '').trim();
   if (!raw) return PLACEHOLDER;
-  return `<img src="${escapeHTML(raw)}" alt="Vista previa de la imagen" loading="lazy" decoding="async" data-img-fallback="preview">`;
+  const src = resolveAssetUrl(raw);
+  return `<img src="${escapeHTML(src)}" alt="Vista previa de la imagen" loading="lazy" decoding="async" data-img-fallback="preview">`;
 }
 
 /* --------------------------------------------------------------------------
@@ -162,7 +165,9 @@ function setup(root) {
 
   urlApply?.addEventListener('click', () => {
     try {
-      const url = sanitizeImageValue(urlInput.value, {
+      const raw = normalizeImageUrl(urlInput.value);
+      if (raw !== urlInput.value) urlInput.value = raw;
+      const url = sanitizeImageValue(raw, {
         field: 'la imagen'
       });
       if (!url) {
@@ -179,8 +184,13 @@ function setup(root) {
 
   // Al escribir/pegar una URL se aplica al instante: no hace falta pulsar «Usar».
   urlInput?.addEventListener('input', () => {
-    const raw = urlInput.value.trim();
+    let raw = urlInput.value.trim();
     if (!raw) return;
+    const normalized = normalizeImageUrl(raw);
+    if (normalized !== raw) {
+      raw = normalized;
+      urlInput.value = raw;
+    }
     try {
       commit(sanitizeImageValue(raw, { field: 'la imagen' }));
     } catch (error) {

@@ -18,8 +18,7 @@ import {
   watchPublicPrayers,
   createPrayer,
   toggleReaction,
-  watchReactions,
-  myReactions,
+  getMyReactionsSync,
   reactionMeta,
   REACTIONS
 } from './services/prayers.js';
@@ -37,7 +36,6 @@ let productsUnsub = null;
 let prayersUnsub = null;
 let ministriesUnsub = null;
 let galleryUnsub = null;
-const reactionUnsubs = new Map();
 const warned = new Set();
 let lastPrayersList = [];
 let currentPrayerTab = 'peticiones';
@@ -613,18 +611,6 @@ function renderPublicPrayers(list) {
   // Elementos correspondientes a la pestaña activa
   const activeItems = currentPrayerTab === 'inquietudes' ? inquietudes : peticiones;
 
-  // Cierra o abre los listeners de reacciones de la vista anterior.
-  reactionUnsubs.forEach((unsub, id) => {
-    if (!activeItems.some((p) => p.id === id)) {
-      try {
-        unsub();
-      } catch {
-        /* sin impacto */
-      }
-      reactionUnsubs.delete(id);
-    }
-  });
-
   if (!activeItems.length) {
     host.innerHTML = `
       <div class="prayer-empty">
@@ -640,31 +626,12 @@ function renderPublicPrayers(list) {
   }
 
   host.innerHTML = activeItems.map(renderPrayerCard).join('');
-
-  // Las reacciones se cargan por tarjeta para no traer el muro entero dos veces.
-  activeItems.forEach((prayer) => {
-    if (reactionUnsubs.has(prayer.id)) return;
-    const host2 = qs(`[data-reactions="${prayer.id}"]`, host);
-    if (!host2) return;
-
-    myReactions(prayer.id)
-      .then((mine) => paintReactionState(prayer.id, mine))
-      .catch(() => {});
-
-    reactionUnsubs.set(
-      prayer.id,
-      watchReactions(
-        prayer.id,
-        ({ counts }) => paintReactionCounts(prayer.id, counts),
-        () => {}
-      )
-    );
-  });
 }
 
 function renderPrayerCard(prayer) {
   const replies = (prayer.replies || []).slice(-2);
   const when = smartDate(prayer.createdAt);
+  const mySet = new Set(getMyReactionsSync(prayer.id));
 
   return `
     <article class="prayer-card" data-prayer="${prayer.id}">
@@ -703,38 +670,19 @@ function renderPrayerCard(prayer) {
       }
 
       <div class="prayer-reactions" data-reactions="${escapeHTML(prayer.id)}">
-        ${REACTIONS.map(
-          (r) => `
-          <button type="button" class="prayer-reaction" data-kind="${r.kind}" data-prayer="${escapeHTML(prayer.id)}"
-                  aria-pressed="false" title="${escapeHTML(r.label)}">
+        ${REACTIONS.map((r) => {
+          const count = prayer.reactions?.[r.kind] || 0;
+          const isActive = mySet.has(r.kind);
+          return `
+          <button type="button" class="prayer-reaction${isActive ? ' is-active' : ''}" data-kind="${r.kind}" data-prayer="${escapeHTML(prayer.id)}"
+                  aria-pressed="${isActive ? 'true' : 'false'}" title="${escapeHTML(r.label)}">
             <span aria-hidden="true">${r.emoji}</span>
-            <span class="prayer-reaction-count" data-count="${r.kind}">0</span>
-          </button>`
-        ).join('')}
+            <span class="prayer-reaction-count" data-count="${r.kind}">${count}</span>
+          </button>`;
+        }).join('')}
       </div>
     </article>
   `;
-}
-
-function paintReactionCounts(prayerId, counts) {
-  const host = qs(`[data-reactions="${prayerId}"]`);
-  if (!host) return;
-  REACTIONS.forEach((r) => {
-    const node = host.querySelector(`[data-count="${r.kind}"]`);
-    if (node) node.textContent = String(counts[r.kind] || 0);
-  });
-}
-
-function paintReactionState(prayerId, mine) {
-  const host = qs(`[data-reactions="${prayerId}"]`);
-  if (!host) return;
-  REACTIONS.forEach((r) => {
-    const btn = host.querySelector(`[data-kind="${r.kind}"]`);
-    if (!btn) return;
-    const active = mine.includes(r.kind);
-    btn.classList.toggle('is-active', active);
-    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
-  });
 }
 
 function initialsOf(name) {
@@ -825,8 +773,8 @@ function bindPublicInteractions() {
     });
   }
 
-  // Reacciones.
-  document.addEventListener('click', async (event) => {
+  // Reacciones (actualización optimista instantánea sin bloquear la UI)
+  document.addEventListener('click', (event) => {
     const btn = event.target.closest('.prayer-reaction');
     if (!btn) return;
     const kind = btn.dataset.kind;
@@ -835,21 +783,36 @@ function bindPublicInteractions() {
     if (!meta || !prayerId) return;
 
     const wasActive = btn.classList.contains('is-active');
-    btn.disabled = true;
-    try {
-      await toggleReaction(prayerId, kind, !wasActive);
-      btn.classList.toggle('is-active', !wasActive);
-      btn.setAttribute('aria-pressed', !wasActive ? 'true' : 'false');
+    const willBeActive = !wasActive;
+
+    // Actualización visual inmediata en el siguiente cuadro de animación
+    requestAnimationFrame(() => {
+      btn.classList.toggle('is-active', willBeActive);
+      btn.setAttribute('aria-pressed', willBeActive ? 'true' : 'false');
       const countNode = btn.querySelector('.prayer-reaction-count');
       if (countNode) {
-        const next = (Number(countNode.textContent) || 0) + (wasActive ? -1 : 1);
+        const currentCount = Number(countNode.textContent) || 0;
+        const next = currentCount + (willBeActive ? 1 : -1);
         countNode.textContent = String(Math.max(0, next));
       }
-    } catch (error) {
+    });
+
+    // Guardado en Firestore en segundo plano
+    toggleReaction(prayerId, kind, willBeActive).catch((error) => {
+      console.warn('[CL] Error en la reacción:', error);
+      // Revertir optimismo si falló la red
+      requestAnimationFrame(() => {
+        btn.classList.toggle('is-active', wasActive);
+        btn.setAttribute('aria-pressed', wasActive ? 'true' : 'false');
+        const countNode = btn.querySelector('.prayer-reaction-count');
+        if (countNode) {
+          const currentCount = Number(countNode.textContent) || 0;
+          const reverted = currentCount + (wasActive ? 1 : -1);
+          countNode.textContent = String(Math.max(0, reverted));
+        }
+      });
       showToast(error.message || 'No se pudo registrar tu reacción.', 'danger');
-    } finally {
-      btn.disabled = false;
-    }
+    });
   });
 
     initPublicMarketOrders();

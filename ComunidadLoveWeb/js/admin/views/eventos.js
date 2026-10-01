@@ -20,6 +20,7 @@ import {
 } from '../../lib/dom.js';
 import { formatDateTime, daysUntil, parseDate } from '../../lib/dates.js';
 import { bindImageInputs, imageInput, prepareImageValue } from '../image-input.js';
+import { resolveAssetUrl } from '../../lib/image.js';
 import { subscribe, getState, removeLocalEntity } from '../store.js';
 import { pageHeader, card, emptyState, tag, iconButton, field, drawer, markInvalid, clearInvalid, setLoading, readForm } from '../ui.js';
 
@@ -96,7 +97,7 @@ function renderList(events, editable) {
             <div class="clg-event-card-banner">
               ${
                 event.bannerUrl
-                  ? `<img src="${escapeHTML(event.bannerUrl)}" alt="${escapeHTML(event.title)}" loading="lazy" decoding="async" data-img-fallback="hide">`
+                  ? `<img src="${escapeHTML(resolveAssetUrl(event.bannerUrl))}" alt="${escapeHTML(event.title)}" loading="lazy" decoding="async" data-img-fallback="hide">`
                   : '<div class="clg-event-card-placeholder"><i class="fas fa-image"></i></div>'
               }
               <span class="clg-event-card-state">${tag(event.isActive ? 'Publicado' : 'Pausado', event.isActive ? 'news' : 'neutral')}</span>

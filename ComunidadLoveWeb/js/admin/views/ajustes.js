@@ -18,6 +18,7 @@ import { seedInitialData, hardResetFactoryData } from '../../services/seed.js';
 import { watchMinistries, updateMinistry, DEFAULT_MINISTRIES } from '../../services/ministries.js';
 import { watchGallery, addGalleryItem, deleteGalleryItem, GALLERY_CATEGORIES, DEFAULT_GALLERY_ITEMS } from '../../services/gallery.js';
 import { bindImageInputs, imageInput, prepareImageValue } from '../image-input.js';
+import { resolveAssetUrl } from '../../lib/image.js';
 import { bindLiveFormValidation } from '../../lib/validation.js';
 
 let ministriesCache = DEFAULT_MINISTRIES;
@@ -380,7 +381,7 @@ export function renderAjustes(container) {
                   (item) => `
                 <div class="clg-gallery-card" style="border: 1px solid var(--clg-line); border-radius: var(--clg-radius-sm); overflow: hidden; background: #fff; display: flex; flex-direction: column;">
                   <div style="height: 140px; background: #f1f5f9; overflow: hidden; position: relative;">
-                    <img src="${escapeHTML(item.imageUrl)}" alt="${escapeHTML(item.title)}" style="width: 100%; height: 100%; object-fit: cover;" loading="lazy">
+                    <img src="${escapeHTML(resolveAssetUrl(item.imageUrl))}" alt="${escapeHTML(item.title)}" style="width: 100%; height: 100%; object-fit: cover;" loading="lazy">
                     <span style="position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,0.65); color: #fff; font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 999px;">
                       ${escapeHTML(GALLERY_CATEGORIES.find((c) => c.value === item.category)?.label || item.category)}
                     </span>

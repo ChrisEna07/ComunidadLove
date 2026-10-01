@@ -39,6 +39,7 @@ import {
   readForm
 } from '../ui.js';
 import { imageInput, bindImageInputs, prepareImageValue } from '../image-input.js';
+import { resolveAssetUrl } from '../../lib/image.js';
 
 export function renderMarket(container) {
   const me = getState().profile || {};
@@ -442,7 +443,7 @@ function renderGrid(products) {
         <div class="clg-product-media">
           ${
             p.imageUrl
-              ? `<img src="${escapeHTML(p.imageUrl)}" alt="${escapeHTML(p.name)}" loading="lazy">`
+              ? `<img src="${escapeHTML(resolveAssetUrl(p.imageUrl))}" alt="${escapeHTML(p.name)}" loading="lazy">`
               : `<div class="clg-product-media-fallback" aria-hidden="true">
                    <i class="fas fa-gift"></i>
                  </div>`

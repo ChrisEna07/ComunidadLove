@@ -130,8 +130,12 @@ export function renderOracion(container) {
   function paint(list, isReady = true) {
     const prayers = list || [];
     const open = prayers.filter((p) => p.status === 'abierta').length;
-    const answered = prayers.filter((p) => p.status === 'atendida').length;
-    const reactions = prayers.reduce((sum, p) => sum + p.totalReactions, 0);
+    const reactions = prayers.reduce((sum, p) => {
+      const cardTotal = typeof p.totalReactions === 'number'
+        ? p.totalReactions
+        : (p.reactions ? Object.values(p.reactions).reduce((a, b) => a + (Number(b) || 0), 0) : 0);
+      return sum + cardTotal;
+    }, 0);
 
     const countAll = prayers.length;
     const countPeticiones = prayers.filter((p) => (p.type || '').toLowerCase() !== 'inquietud').length;

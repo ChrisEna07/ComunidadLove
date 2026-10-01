@@ -150,12 +150,18 @@ export function tag(text, tone = 'neutral') {
 }
 
 export function iconButton({ icon, label, action = '', data = '', variant = 'ghost' }) {
-  const attrs = Object.entries(data)
-    .map(([key, value]) => `data-${key}="${escapeHTML(value)}"`)
-    .join(' ');
+  let attrs = '';
+  if (data && typeof data === 'object') {
+    attrs = Object.entries(data)
+      .map(([key, value]) => `data-${key}="${escapeHTML(value)}"`)
+      .join(' ');
+  } else if (typeof data === 'string' && data.trim()) {
+    attrs = data.trim();
+  }
+  const actionClass = action === 'edit' ? ' btn-edit' : (action ? ` btn-${action}` : '');
   return `
-    <button type="button" class="clg-icon-btn clg-icon-btn-${variant}" title="${escapeHTML(label)}"
-            aria-label="${escapeHTML(label)}"${action ? ` data-action="${escapeHTML(action)}"` : ''}${attrs}>
+    <button type="button" class="clg-icon-btn clg-icon-btn-${variant}${actionClass}" title="${escapeHTML(label)}"
+            aria-label="${escapeHTML(label)}"${action ? ` data-action="${escapeHTML(action)}"` : ''}${attrs ? ` ${attrs}` : ''}>
       <i class="fas ${icon}"></i>
     </button>
   `;
