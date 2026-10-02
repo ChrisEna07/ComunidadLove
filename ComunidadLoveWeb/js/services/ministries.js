@@ -68,6 +68,10 @@ export const DEFAULT_MINISTRIES = [
     badge: 'Evangelismo & Acción Social',
     description: 'Nuestra pasión es llevar el mensaje de salvación a cada rincón de Cartagena. A través de visitas a hospitales, cárceles, comedores comunitarios y evangelismo en las calles, compartimos las buenas nuevas y el amor práctico de Jesús con quienes más lo necesitan.',
     imageUrl: './Assets/somos comunidad love/love comunidad (6).jpeg',
+    gallery: [
+      './Assets/somos comunidad love/love comunidad (6).jpeg',
+      './Assets/somos comunidad love/love comunidad (7).jpeg'
+    ],
     quote: '',
     videoUrl: '',
     stats: {
@@ -121,6 +125,10 @@ export async function updateMinistry(id, patch) {
   const cleanId = String(id || '').trim().toLowerCase();
   if (!cleanId) throw new Error('ID de ministerio no válido.');
 
+  const ref = doc(db, 'ministries', cleanId);
+  const snap = await getDoc(ref);
+  const existing = snap.exists() ? snap.data() : {};
+
   const data = { ...patch };
   if (data.name && !data.title) {
     data.title = data.name;
@@ -128,17 +136,20 @@ export async function updateMinistry(id, patch) {
     data.name = data.title;
   }
 
-  if (data.imageUrl) {
+  // Preservación de imagen existente si el campo se dejó vacío
+  if (!data.imageUrl && existing.imageUrl) {
+    data.imageUrl = existing.imageUrl;
+  } else if (data.imageUrl) {
     data.imageUrl = sanitizeImageValue(data.imageUrl, { field: 'imagen del ministerio' });
   }
 
   if (Array.isArray(data.gallery)) {
-    data.gallery = data.gallery.map((img, idx) =>
-      sanitizeImageValue(img, { field: `foto ${idx + 1} del collage` })
-    );
+    data.gallery = data.gallery.map((img, idx) => {
+      const cleanImg = (img && img.trim()) ? img.trim() : (Array.isArray(existing.gallery) ? existing.gallery[idx] : '');
+      return cleanImg ? sanitizeImageValue(cleanImg, { field: `foto ${idx + 1} del collage` }) : '';
+    });
   }
 
-  const ref = doc(db, 'ministries', cleanId);
   await setDoc(ref, {
     ...data,
     id: cleanId,

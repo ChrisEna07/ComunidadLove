@@ -84,28 +84,32 @@ export function renderPanel(container) {
           value: members.length,
           icon: 'fa-users',
           tone: 'primary',
-          hint: `${newMembers.length} en seguimiento nuevo`
+          hint: `${newMembers.length} en seguimiento nuevo`,
+          action: 'go-members'
         })}
         ${statCard({
           label: 'Cumpleaños de la semana',
           value: weekBirthdays.length,
           icon: 'fa-cake-candles',
           tone: 'woman',
-          hint: todayBirthdays.length ? `${todayBirthdays.length} hoy` : 'Ninguno hoy'
+          hint: todayBirthdays.length ? `${todayBirthdays.length} hoy` : 'Ninguno hoy',
+          action: 'go-birthdays'
         })}
         ${statCard({
           label: 'Eventos activos',
           value: activeEvents.length,
           icon: 'fa-calendar-check',
           tone: 'news',
-          hint: nextEvent ? `Próximo: ${smartDate(nextEvent.dateStart)}` : 'Sin eventos programados'
+          hint: nextEvent ? `Próximo: ${smartDate(nextEvent.dateStart)}` : 'Sin eventos programados',
+          action: 'go-eventos'
         })}
         ${statCard({
           label: 'Avisos publicados',
           value: announcements.length,
           icon: 'fa-bullhorn',
           tone: 'adora',
-          hint: `${announcements.filter((a) => a.priority >= 2).length} marcados importantes`
+          hint: `${announcements.filter((a) => a.priority >= 2).length} marcados importantes`,
+          action: 'go-avisos'
         })}
       </div>
 
@@ -258,6 +262,15 @@ function bindPanelActions(body, weekBirthdays, isAdmin) {
         ])
       ]
     );
+  });
+  body.querySelectorAll('[data-stat-action]').forEach((el) => {
+    el.addEventListener('click', () => {
+      const act = el.dataset.statAction;
+      if (act === 'go-members') navigate('asistencia');
+      else if (act === 'go-birthdays') navigate('asistencia?tab=cumpleanos');
+      else if (act === 'go-eventos') navigate('eventos');
+      else if (act === 'go-avisos') navigate('avisos');
+    });
   });
   body.querySelectorAll('[data-member]').forEach((button) => {
     button.addEventListener('click', () => navigate(`seguimiento?member=${encodeURIComponent(button.dataset.member)}`));

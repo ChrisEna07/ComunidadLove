@@ -132,8 +132,8 @@ export function renderAjustes(container) {
         })}
 
         ${card({
-          title: 'Nuestras reuniones',
-          subtitle: 'Se muestran en la sección Calendario de la web',
+          title: 'Horarios de Servicios Semanales ("Nuestras Reuniones")',
+          subtitle: 'Configura o elimina los servicios recurrentes (Domingos, Miércoles, etc.) que aparecen en el lateral del calendario público.',
           body: `
             <div id="clg-hours-list" class="clg-hours-list">
               ${hours.length
@@ -263,12 +263,31 @@ export function renderAjustes(container) {
                   ? field({ keyPrefix: min.id, name: 'videoUrl', label: 'Enlace del Video (YouTube Embed)', value: min.videoUrl || '', placeholder: 'https://www.youtube.com/embed/...' })
                   : ''}
 
-                ${min.id === 'buenas-nuevas'
+                ${min.id === 'buenas-nuevas' || min.id === 'love-buenas-nuevas'
                   ? `
                   <div class="clg-grid-3">
                     ${field({ keyPrefix: min.id, name: 'stat_homes', label: 'Hogares Visitados', value: min.stats?.homes || '500+' })}
                     ${field({ keyPrefix: min.id, name: 'stat_zones', label: 'Zonas e Impacto', value: min.stats?.zones || '15+' })}
                     ${field({ keyPrefix: min.id, name: 'stat_volunteers', label: 'Voluntarios', value: min.stats?.volunteers || '80+' })}
+                  </div>
+
+                  <div class="clg-card" style="background: var(--clg-surface-2, #0f172a); border: 1px solid var(--clg-line, #334155); border-radius: 8px; padding: 16px; margin: 16px 0;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+                      <div>
+                        <h4 style="margin: 0; font-size: 0.95rem; color: var(--clg-primary, #38bdf8);"><i class="fas fa-images"></i> Fotografías de Buenas Nuevas (2 Fotos)</h4>
+                        <small class="clg-hint">Cuadrícula visual de 2 fotos en la sección de Buenas Nuevas en la web pública.</small>
+                      </div>
+                      <span class="clg-tag clg-tag-info" style="font-size: 0.72rem;">2 Fotos</span>
+                    </div>
+                    <div class="clg-grid-2">
+                      ${[0, 1].map((idx) => imageInput({
+                        keyPrefix: `${min.id}-gal`,
+                        name: `photo_${idx}`,
+                        label: `Foto ${idx + 1} de Buenas Nuevas`,
+                        value: (Array.isArray(min.gallery) && min.gallery[idx]) || (idx === 0 ? min.imageUrl : '') || (idx === 0 ? './Assets/somos comunidad love/love comunidad (6).jpeg' : './Assets/somos comunidad love/love comunidad (7).jpeg'),
+                        hint: `Posición ${idx + 1} en el collage de Buenas Nuevas.`
+                      })).join('')}
+                    </div>
                   </div>
                   `
                   : ''}
@@ -294,13 +313,15 @@ export function renderAjustes(container) {
                     </div>
                   </div>
                   `
-                  : imageInput({
-                    keyPrefix: min.id,
-                    name: 'imageUrl',
-                    label: 'Imagen Principal',
-                    value: min.imageUrl || '',
-                    hint: 'Pega una dirección web o sube una imagen (se comprimirá a < 200 KB).'
-                  })
+                  : (min.id !== 'buenas-nuevas' && min.id !== 'love-buenas-nuevas'
+                    ? imageInput({
+                        keyPrefix: min.id,
+                        name: 'imageUrl',
+                        label: 'Imagen Principal',
+                        value: min.imageUrl || '',
+                        hint: 'Pega una dirección web o sube una imagen (se comprimirá a < 200 KB).'
+                      })
+                    : '')
                 }
 
                 <div style="margin-top: 12px; text-align: right;">
@@ -326,6 +347,7 @@ export function renderAjustes(container) {
         const id = form.dataset.ministryId;
         const data = readForm(form);
         const prefix = `${id}-`;
+        const existingMin = ministriesCache.find((m) => m.id === id);
 
         const patch = {
           name: data[`${prefix}name`],
@@ -337,29 +359,49 @@ export function renderAjustes(container) {
           imageUrl: data[`${prefix}imageUrl`] || ''
         };
 
-        if (id === 'buenas-nuevas') {
+        if (id === 'buenas-nuevas' || id === 'love-buenas-nuevas') {
           patch.stats = {
             homes: data[`${prefix}stat_homes`] || '500+',
             zones: data[`${prefix}stat_zones`] || '15+',
             volunteers: data[`${prefix}stat_volunteers`] || '80+'
           };
-        }
-
-        if (id === 'adora' || id === 'love-adora') {
           try {
-            const g0 = prepareImageValue(data[`${id}-gal-photo_0`] || '');
-            const g1 = prepareImageValue(data[`${id}-gal-photo_1`] || '');
-            const g2 = prepareImageValue(data[`${id}-gal-photo_2`] || '');
-            const g3 = prepareImageValue(data[`${id}-gal-photo_3`] || '');
+            const raw0 = (data[`${id}-gal-photo_0`] || '').trim();
+            const raw1 = (data[`${id}-gal-photo_1`] || '').trim();
+            const curGal = Array.isArray(existingMin?.gallery) ? existingMin.gallery : [];
+
+            const g0 = raw0 ? prepareImageValue(raw0) : (curGal[0] || existingMin?.imageUrl || './Assets/somos comunidad love/love comunidad (6).jpeg');
+            const g1 = raw1 ? prepareImageValue(raw1) : (curGal[1] || './Assets/somos comunidad love/love comunidad (7).jpeg');
+
+            patch.gallery = [g0, g1];
+            patch.imageUrl = g0;
+          } catch (err) {
+            showToast(err.message, 'danger');
+            return;
+          }
+        } else if (id === 'adora' || id === 'love-adora') {
+          try {
+            const curGal = Array.isArray(existingMin?.gallery) ? existingMin.gallery : [];
+            const r0 = (data[`${id}-gal-photo_0`] || '').trim();
+            const r1 = (data[`${id}-gal-photo_1`] || '').trim();
+            const r2 = (data[`${id}-gal-photo_2`] || '').trim();
+            const r3 = (data[`${id}-gal-photo_3`] || '').trim();
+
+            const g0 = r0 ? prepareImageValue(r0) : (curGal[0] || existingMin?.imageUrl || './Assets/Love adora/love adora (1).jpg');
+            const g1 = r1 ? prepareImageValue(r1) : (curGal[1] || './Assets/Love adora/love adora (2).jpg');
+            const g2 = r2 ? prepareImageValue(r2) : (curGal[2] || './Assets/Love adora/love adora (3).jpg');
+            const g3 = r3 ? prepareImageValue(r3) : (curGal[3] || './Assets/Love adora/love adora (4).jpg');
+
             patch.gallery = [g0, g1, g2, g3];
-            patch.imageUrl = g0 || './Assets/Love adora/love adora (1).jpg';
+            patch.imageUrl = g0;
           } catch (err) {
             showToast(err.message, 'danger');
             return;
           }
         } else {
           try {
-            patch.imageUrl = prepareImageValue(patch.imageUrl);
+            const rawImg = (patch.imageUrl || '').trim();
+            patch.imageUrl = rawImg ? prepareImageValue(rawImg) : (existingMin?.imageUrl || '');
           } catch (err) {
             showToast(err.message, 'danger');
             return;

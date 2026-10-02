@@ -377,6 +377,30 @@ export function renderConsola(container) {
     });
   });
 
+  // Función segura de copiado al portapapeles sin errores de selección de nodos ni violación de contexto
+  async function copyLogToClipboard(text) {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const tempInput = document.createElement('textarea');
+        tempInput.value = text;
+        tempInput.style.position = 'fixed';
+        tempInput.style.left = '-9999px';
+        tempInput.style.top = '-9999px';
+        tempInput.setAttribute('readonly', '');
+        document.body.appendChild(tempInput);
+        tempInput.select();
+        document.execCommand('copy');
+        document.body.removeChild(tempInput);
+      }
+      showToast('Logs de diagnóstico copiados al portapapeles.', 'success');
+    } catch (err) {
+      console.error('[CL] Error al copiar logs:', err);
+      showToast('No se pudo acceder al portapapeles.', 'warning');
+    }
+  }
+
   // Copiar Logs
   qs('#btn-copy-logs', container)?.addEventListener('click', async () => {
     const logs = getLogs();
@@ -385,12 +409,7 @@ export function renderConsola(container) {
       return;
     }
     const text = JSON.stringify(logs, null, 2);
-    try {
-      await navigator.clipboard.writeText(text);
-      showToast('Logs de diagnóstico copiados al portapapeles.', 'success');
-    } catch {
-      showToast('No se pudo acceder al portapapeles.', 'warning');
-    }
+    await copyLogToClipboard(text);
   });
 
   // Limpiar

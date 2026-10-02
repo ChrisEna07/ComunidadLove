@@ -14,6 +14,7 @@ import {
   deleteMember,
   assignLeaderFamily,
   membersToCSV,
+  getAbsenteeMembers,
   CHURCH_ROLES,
   MEMBER_STATUS,
   STATUS_LABELS
@@ -51,7 +52,8 @@ const FILTERS = [
   { value: 'todos', label: 'Todos', icon: 'fa-users' },
   { value: 'hoy', label: 'Cumple hoy', icon: 'fa-cake-candles' },
   { value: 'semana', label: 'Cumple esta semana', icon: 'fa-calendar-week' },
-  { value: 'mes', label: 'Cumple este mes', icon: 'fa-calendar' }
+  { value: 'mes', label: 'Cumple este mes', icon: 'fa-calendar' },
+  { value: 'inasistencia', label: 'Alerta Pastoral (3+ ausencias)', icon: 'fa-triangle-exclamation' }
 ];
 
 let filterMode = 'todos';
@@ -111,7 +113,12 @@ export function renderSeguimiento(container, { params }) {
   );
 
   function currentList(state) {
-    const base = filterMode === 'todos' ? state.members : birthdaysThis(state.members, filterMode).map((e) => e.member);
+    let base = state.members;
+    if (filterMode === 'inasistencia') {
+      base = getAbsenteeMembers(state.members, 3);
+    } else if (filterMode !== 'todos') {
+      base = birthdaysThis(state.members, filterMode).map((e) => e.member);
+    }
     return searchMembers(base, searchTerm);
   }
 
@@ -124,6 +131,8 @@ export function renderSeguimiento(container, { params }) {
     }
     dataUnsubscribe = subscribe(['members', 'ready', 'profile'], (state) => {
       if (!state.ready) return;
+      const absentees = getAbsenteeMembers(state.members, 3);
+      const absenteesSet = new Set(absentees.map((m) => m.id));
       const list = currentList(state);
       const role = state.profile?.role;
 
@@ -131,12 +140,14 @@ export function renderSeguimiento(container, { params }) {
       qs('[data-count="hoy"]', container).textContent = birthdaysThis(state.members, 'hoy').length;
       qs('[data-count="semana"]', container).textContent = birthdaysThis(state.members, 'semana').length;
       qs('[data-count="mes"]', container).textContent = birthdaysThis(state.members, 'mes').length;
+      const inasistCountEl = qs('[data-count="inasistencia"]', container);
+      if (inasistCountEl) inasistCountEl.textContent = absentees.length;
 
       body.innerHTML = card({
         title: `${list.length} ${list.length === 1 ? 'miembro' : 'miembros'}`,
         subtitle:
           filterMode === 'todos' ? 'Listado completo de la comunidad' : FILTERS.find((f) => f.value === filterMode)?.label,
-        body: renderTable(list, role),
+        body: renderTable(list, role, absenteesSet),
         footer: can(role, 'reports.export') && list.length
           ? `<button class="clg-btn clg-btn-ghost" type="button" data-action="export">
                <i class="fas fa-file-csv"></i><span>Exportar CSV</span>
@@ -190,7 +201,7 @@ export function renderSeguimiento(container, { params }) {
   return () => cleanups.forEach((fn) => fn());
 }
 
-function renderTable(list, role) {
+function renderTable(list, role, absenteesSet = new Set()) {
   if (!list.length) {
     return emptyState({
       icon: 'fa-user-slash',
@@ -206,6 +217,11 @@ function renderTable(list, role) {
     rows: list.map((member) => {
       const days = daysToBirthday(member.birthDate);
       const age = ageFrom(member.birthDate);
+      const isAbsentee = absenteesSet.has(member.id);
+      const waMsg = isAbsentee
+        ? `Hola ${member.fullName}, te extrañamos en Comunidad Love. Esperamos que todo esté muy bien y poder verte pronto en nuestros servicios. ¡Te mandamos un abrazo!`
+        : birthdayWhatsappMessage(member.fullName);
+
       return `
         <tr data-open-member="${escapeHTML(member.id)}" tabindex="0" role="button">
           <td>
@@ -232,14 +248,17 @@ function renderTable(list, role) {
             }
           </td>
           <td>${tag(member.churchRole, 'neutral')}</td>
-          <td>${tag(STATUS_LABELS[member.status] || member.status, statusTone(member.status))}</td>
+          <td>
+            ${tag(STATUS_LABELS[member.status] || member.status, statusTone(member.status))}
+            ${isAbsentee ? `<span class="clg-tag clg-tag-danger" style="margin-top: 4px; display: inline-flex; align-items: center; gap: 4px; font-size: 0.72rem;" title="Alerta Pastoral: 3 o más servicios sin registrar asistencia"><i class="fas fa-triangle-exclamation"></i> 3+ Ausencias</span>` : ''}
+          </td>
           <td><span class="clg-cell-muted">${escapeHTML(member.assignedLeaderName || 'Sin asignar')}</span></td>
           <td>
             <div class="clg-row-actions">
               ${
                 member.phone
-                  ? `<a class="clg-icon-btn clg-icon-btn-whatsapp" target="_blank" rel="noopener" title="WhatsApp"
-                       href="${escapeHTML(whatsappLink(member.phone, birthdayWhatsappMessage(member.fullName)))}">
+                  ? `<a class="clg-icon-btn clg-icon-btn-whatsapp" target="_blank" rel="noopener" title="${isAbsentee ? 'Contacto Pastoral WhatsApp' : 'WhatsApp'}"
+                       href="${escapeHTML(whatsappLink(member.phone, waMsg))}">
                        <i class="fab fa-whatsapp"></i>
                      </a>`
                   : ''

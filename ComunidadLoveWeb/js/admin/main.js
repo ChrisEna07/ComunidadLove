@@ -12,6 +12,7 @@ import { subscribe, getState, setSession, startDataStream, stopDataStream } from
 import { renderLogin } from './views/login.js';
 import { renderPanel } from './views/panel.js';
 import { renderRegistro } from './views/registro.js';
+import { renderAsistencia } from './views/asistencia.js';
 import { renderSeguimiento } from './views/seguimiento.js';
 import { renderEventos } from './views/eventos.js';
 import { renderAvisos } from './views/avisos.js';
@@ -38,7 +39,7 @@ let root = getAppRoot();
 
 const NAV_ITEMS = [
   { path: 'panel', label: 'Resumen', icon: 'fa-gauge-high', permission: null },
-  { path: 'registro', label: 'Registro y Asistencia', icon: 'fa-user-plus', permission: 'members.write' },
+  { path: 'asistencia', label: 'Registro y Asistencia', icon: 'fa-user-check', permission: 'members.write' },
   { path: 'seguimiento', label: 'Seguimiento', icon: 'fa-address-book', permission: 'members.read' },
   { path: 'eventos', label: 'Eventos', icon: 'fa-calendar-days', permission: 'events.manage' },
   { path: 'avisos', label: 'Avisos', icon: 'fa-bullhorn', permission: 'content.write' },
@@ -51,7 +52,8 @@ const NAV_ITEMS = [
 ];
 
 defineRoute('panel', renderPanel);
-defineRoute('registro', renderRegistro, 'members.write');
+defineRoute('asistencia', renderAsistencia, 'members.write');
+defineRoute('registro', renderAsistencia, 'members.write');
 defineRoute('seguimiento', renderSeguimiento, 'members.read');
 defineRoute('eventos', renderEventos, 'events.manage');
 defineRoute('avisos', renderAvisos, 'content.write');
@@ -288,9 +290,13 @@ function renderShell() {
 
   qs('[data-action="toggle-sidebar"]', root)?.addEventListener('click', toggleSidebar);
   qs('[data-action="close-sidebar"]', root)?.addEventListener('click', closeSidebar);
-  qsa('.clg-nav-link', root).forEach((link) => {
-    link.addEventListener('click', closeSidebar);
-  });
+  
+  // Delegación asíncrona optimizada para INP en enlaces de navegación
+  root.addEventListener('click', (e) => {
+    if (e.target.closest('.clg-nav-link')) {
+      requestAnimationFrame(() => closeSidebar());
+    }
+  }, { passive: true });
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeSidebar();
   });

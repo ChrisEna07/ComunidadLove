@@ -15,7 +15,9 @@ import {
   serverTimestamp,
   updateDoc,
   where,
-  writeBatch
+  writeBatch,
+  arrayUnion,
+  increment
 } from 'firebase/firestore';
 import { db, requireService } from '../firebase.js';
 import { toDate, filterBirthdays, parseBirthDate } from '../lib/dates.js';
@@ -82,6 +84,10 @@ function decorate(id, data) {
     assignedLeaderId: data.assignedLeaderId || '',
     assignedLeaderName: data.assignedLeaderName || '',
     prayerRequests: data.prayerRequests || '',
+    ministry: data.ministry || 'general',
+    attendances: Array.isArray(data.attendances) ? data.attendances : [],
+    attendanceCount: Number(data.attendanceCount) || (Array.isArray(data.attendances) ? data.attendances.length : 0),
+    lastAttendance: data.lastAttendance || '',
     createdAt: toDate(data.createdAt),
     createdBy: data.createdBy || ''
   };
@@ -231,6 +237,10 @@ export function buildMember(input, context = {}) {
     assignedLeaderId: input.assignedLeaderId || '',
     assignedLeaderName: input.assignedLeaderName || '',
     prayerRequests: (input.prayerRequests || '').trim(),
+    ministry: input.ministry || 'general',
+    attendances: Array.isArray(input.attendances) ? input.attendances : [],
+    attendanceCount: Number(input.attendanceCount) || (Array.isArray(input.attendances) ? input.attendances.length : 0),
+    lastAttendance: input.lastAttendance || '',
     createdAt: serverTimestamp(),
     createdBy: context.authorUid || ''
   };
@@ -313,6 +323,7 @@ export async function updateMember(id, data, authorUid) {
       assignedLeaderId: data.assignedLeaderId || '',
       assignedLeaderName: (data.assignedLeaderName || '').trim(),
       prayerRequests: (data.prayerRequests || '').trim(),
+      ministry: data.ministry || 'general',
       updatedAt: serverTimestamp(),
       updatedBy: authorUid || ''
     });
@@ -386,3 +397,76 @@ export function membersToCSV(members) {
     )
   ];
 }
+
+/* --------------------------------------------------------------------------
+   GESTIÓN DE ASISTENCIA, FIDELIZACIÓN Y ALERTAS PASTORALES
+   -------------------------------------------------------------------------- */
+export const MINISTRY_OPTIONS = [
+  { value: 'todos', label: 'Todos' },
+  { value: 'general', label: 'General' },
+  { value: 'kids', label: 'Kids' },
+  { value: 'adora', label: 'Adora' },
+  { value: 'mujeres', label: 'Mujeres' },
+  { value: 'jovenes', label: 'Jóvenes' },
+  { value: 'servidores', label: 'Servidores' }
+];
+
+export async function recordAttendance(memberId, { serviceName = 'Servicio Presencial Love', date = null, authorName = 'Servidor' } = {}) {
+  requireService(db, 'Firestore');
+  const today = date || new Date().toISOString().slice(0, 10);
+  const attItem = {
+    id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `att-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    date: today,
+    service: serviceName,
+    registeredBy: authorName,
+    timestamp: new Date().toISOString()
+  };
+  const memberRef = doc(db, COLLECTION, memberId);
+  await updateDoc(memberRef, {
+    attendances: arrayUnion(attItem),
+    lastAttendance: today,
+    attendanceCount: increment(1)
+  });
+  return attItem;
+}
+
+export async function upgradeMemberStatus(memberId, newStatus = 'activo', authorUid = '') {
+  requireService(db, 'Firestore');
+  const memberRef = doc(db, COLLECTION, memberId);
+  await updateDoc(memberRef, {
+    status: newStatus,
+    churchRole: newStatus === 'activo' ? 'Miembro Activo' : 'Nuevo Asistente',
+    updatedAt: serverTimestamp(),
+    updatedBy: authorUid || ''
+  });
+  return true;
+}
+
+export function isCandidateForRegularMember(member) {
+  if (!member || (member.status !== 'nuevo' && member.status !== 'en_consolidacion')) return false;
+  const attendances = Array.isArray(member.attendances) ? member.attendances : [];
+  const now = Date.now();
+  const sixtyDaysAgo = now - 60 * 24 * 60 * 60 * 1000;
+  const recentCount = attendances.filter((att) => {
+    const attTime = new Date(att.date || att.timestamp).getTime();
+    return !isNaN(attTime) && attTime >= sixtyDaysAgo;
+  }).length;
+  return recentCount >= 4;
+}
+
+export function getAbsenteeMembers(members, threshold = 3) {
+  const now = Date.now();
+  const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
+  const thresholdMs = threshold * oneWeekMs;
+
+  return (members || []).filter((m) => {
+    if (m.status !== 'activo' && m.churchRole !== 'Miembro Activo') return false;
+    if (!m.lastAttendance) {
+      const created = m.createdAt ? new Date(m.createdAt).getTime() : 0;
+      return created > 0 && (now - created) >= thresholdMs;
+    }
+    const lastTime = new Date(m.lastAttendance).getTime();
+    return !isNaN(lastTime) && (now - lastTime) >= thresholdMs;
+  });
+}
+

@@ -56,9 +56,17 @@ export function errorState(message) {
   `;
 }
 
-export function statCard({ label, value, icon, tone = 'primary', hint = '' }) {
+export function statCard({ label, value, icon, tone = 'primary', hint = '', action = '', href = '' }) {
+  const isClickable = Boolean(action || href);
+  const clickableClass = isClickable ? ' clg-stat-clickable' : '';
+  const attrs = [
+    action ? `data-stat-action="${escapeHTML(action)}"` : '',
+    href ? `data-href="${escapeHTML(href)}"` : '',
+    isClickable ? 'role="button" tabindex="0"' : ''
+  ].filter(Boolean).join(' ');
+
   return `
-    <div class="clg-stat clg-stat-${tone}">
+    <div class="clg-stat clg-stat-${tone}${clickableClass}" ${attrs}>
       <span class="clg-stat-icon"><i class="fas ${icon}"></i></span>
       <div class="clg-stat-body">
         <strong class="clg-stat-value">${escapeHTML(String(value))}</strong>

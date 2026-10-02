@@ -2132,3 +2132,108 @@ input.is-invalid {
   background: rgba(255, 107, 74, 0.15);
   color: var(--clg-primary, #ff6b4a);
 }
+
+/* --------------------------------------------------------------------------
+   ESTADÍSTICAS CLICKABLES & ASISTENCIA INTELIGENTE
+   -------------------------------------------------------------------------- */
+.clg-stat-clickable {
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+  user-select: none;
+}
+.clg-stat-clickable:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+}
+.clg-stat-clickable:active {
+  transform: translateY(-1px);
+}
+
+.clg-active-service-banner {
+  background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+  border: 1.5px solid #fdba74;
+  border-radius: var(--clg-radius, 14px);
+  padding: 14px 18px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.clg-active-service-banner-text {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.94rem;
+  color: #9a3412;
+  font-weight: 600;
+}
+.clg-active-service-banner-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #ea580c;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.clg-tooltip-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: #64748b;
+  font-size: 0.72rem;
+  cursor: help;
+  margin-left: 6px;
+  vertical-align: middle;
+  transition: all 0.15s ease;
+}
+.clg-tooltip-icon:hover {
+  background: var(--clg-primary, #ff6b4a);
+  color: #ffffff;
+}
+
+.clg-candidate-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #92400e;
+  border: 1px solid #f59e0b;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(245, 158, 11, 0.15);
+}
+
+.clg-attendance-card {
+  border: 1px solid var(--clg-line, #e2e8f0);
+  background: #ffffff;
+  border-radius: var(--clg-radius, 14px);
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.clg-attendance-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+}
+@media (max-width: 640px) {
+  .clg-attendance-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

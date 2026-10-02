@@ -110,7 +110,9 @@ async function render(path, params) {
 
 function resolve() {
   const { path, params } = parseHash();
-  render(path, params);
+  requestAnimationFrame(() => {
+    render(path, params);
+  });
 }
 
 export function startRouter(element, onChange) {

@@ -1,8 +1,7 @@
 rules_version = '2';
 
 /* ==========================================================================
-   FIRESTORE RULES - COMUNIDAD LOVE / CLGESTIÓN (ACTUALIZADAS Y DEFINITIVAS)
-   Deploy: Firebase Console -> Firestore Database -> pestaña Reglas
+   FIRESTORE RULES - COMUNIDAD LOVE / CLGESTIÓN (DEFINITIVO ASISTENCIA & CMS)
    ========================================================================== */
 
 service cloud.firestore {
@@ -96,9 +95,6 @@ service cloud.firestore {
       ]);
     }
 
-    /* ------------------------------------------------------------------
-       VALIDACIÓN DE IMÁGENES (INDIVIDUAL Y LISTA DE COLLAGE)
-       ------------------------------------------------------------------ */
     function validSingleImage(value) {
       return value is string && (
         value.size() == 0
@@ -126,7 +122,7 @@ service cloud.firestore {
     }
 
     /* ------------------------------------------------------------------
-       CONTENIDO WEB, EVENTOS, AJUSTES, MINISTERIOS Y GALERÍA
+       CONTENIDO WEB, EVENTOS, AJUSTES Y MINISTERIOS
        ------------------------------------------------------------------ */
     match /events/{docId} {
       allow read: if true;
@@ -215,16 +211,36 @@ service cloud.firestore {
     }
 
     /* ------------------------------------------------------------------
-       GESTIÓN DE MIEMBROS (LECTURA PÚBLICA PARA CUMPLEAÑOS COMUNITARIOS)
+       GESTIÓN DE MIEMBROS Y ASISTENCIA (SOPORTE AUTO-REGISTRO QR)
        ------------------------------------------------------------------ */
     match /members/{memberId} {
-      allow read: if can('members.read') || resource.data.get('status', 'activo') == 'activo';
-      allow create, update: if can('members.write') && writesValidImage('photoUrl');
+      // Lectura pública de campos básicos para cumpleaños y validación de asistencia
+      allow read: if can('members.read') || resource.data.get('status', 'activo') in ['activo', 'nuevo'];
+      
+      // Escritura por servidores/admins O auto-registro público vía QR (estado 'nuevo')
+      allow create: if can('members.write')
+        || (
+          request.resource.data.get('status', '') == 'nuevo'
+          && request.resource.data.get('fullName', '') is string
+          && request.resource.data.get('fullName', '').size() > 0
+        );
+
+      allow update: if can('members.write')
+        || (
+          // Permite confirmar asistencia atómicamente
+          request.resource.data.diff(resource.data).affectedKeys().hasAny(['attendances', 'lastAttendance', 'attendanceCount'])
+        );
+
       allow delete: if can('members.delete');
 
       match /followups/{followId} {
         allow read: if can('members.read');
         allow write: if can('followups.write');
+      }
+
+      match /attendances/{attId} {
+        allow read: if can('members.read');
+        allow write: if can('members.write') || true;
       }
     }
 
@@ -299,7 +315,7 @@ service cloud.firestore {
         && request.resource.data.get('action', '').size() > 0
         && request.resource.data.get('action', '').size() <= 80
         && request.resource.data.get('module', 'system') in [
-          'members', 'prayers', 'events', 'market', 'users', 'settings', 'system'
+          'members', 'prayers', 'events', 'market', 'users', 'settings', 'system', 'attendance'
         ];
     }
 

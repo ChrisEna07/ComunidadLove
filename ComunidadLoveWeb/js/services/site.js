@@ -53,7 +53,9 @@ function mergeSettings(data) {
     ...data,
     bannerAlert: { ...base.bannerAlert, ...(data.bannerAlert || {}) },
     socialLinks: { ...base.socialLinks, ...(data.socialLinks || {}) },
-    serviceHours: Array.isArray(data.serviceHours) && data.serviceHours.length ? data.serviceHours : base.serviceHours
+    serviceHours: Array.isArray(data.serviceHours)
+      ? data.serviceHours
+      : (Array.isArray(data.services) ? data.services : base.serviceHours)
   };
 }
 
@@ -96,6 +98,10 @@ export async function saveSettings(partial) {
   requireService(db, 'Firestore');
   const ref = doc(db, 'site_settings', SETTINGS_DOC_ID);
   const clean = stripEmpty(partial);
+  if (Array.isArray(partial.serviceHours)) {
+    clean.serviceHours = partial.serviceHours;
+    clean.services = partial.serviceHours;
+  }
   try {
     await setDoc(
       ref,

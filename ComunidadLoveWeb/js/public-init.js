@@ -28,7 +28,7 @@ import { contienePalabrasObscenas } from './lib/text.js';
 import { bindLiveFormValidation } from './lib/validation.js';
 import { watchMinistries } from './services/ministries.js';
 import { watchGallery } from './services/gallery.js';
-import { watchPublicBirthdays } from './services/members.js';
+import { watchPublicBirthdays, createMember } from './services/members.js';
 import { initPWA } from './lib/pwa.js';
 
 let settingsUnsub = null;
@@ -113,8 +113,20 @@ function renderBannerAlert(settings) {
 function renderServiceHours(settings) {
   const host = qs('#services-list');
   if (!host) return;
-  const hours = Array.isArray(settings.serviceHours) ? settings.serviceHours : [];
-  if (!hours.length) return;
+  const hours = Array.isArray(settings.serviceHours)
+    ? settings.serviceHours
+    : (Array.isArray(settings.services) ? settings.services : []);
+
+  if (!hours.length) {
+    host.innerHTML = `
+      <h3 style="margin-bottom: 24px; color: var(--secondary);">Nuestras Reuniones</h3>
+      <p style="color: var(--text-muted); font-size: 0.9rem;">No hay servicios regulares programados actualmente.</p>
+    `;
+    if (typeof window.CL_Calendar?.setServiceHours === 'function') {
+      window.CL_Calendar.setServiceHours([]);
+    }
+    return;
+  }
 
   const cards = hours
     .map(
@@ -241,21 +253,30 @@ function renderUpcomingEvents(events) {
   const host = qs('#upcoming-events');
   if (!host) return;
 
-  const now = Date.now();
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
   const list = (events || [])
     .filter((event) => {
       if (!event.dateStart) return false;
       const start = parseDate(event.dateStart);
-      const diff = start.getTime() - now;
-      return diff > -86400000 && diff < 1000 * 60 * 60 * 24 * 120;
+      if (!start) return false;
+      const end = event.dateEnd ? parseDate(event.dateEnd) : start;
+      const endTime = end ? end.getTime() : start.getTime();
+      return (
+        endTime >= todayStart &&
+        event.isPublic !== false &&
+        event.status !== 'inactivo' &&
+        event.isActive !== false
+      );
     })
     .slice(0, 4);
 
   if (!list.length) {
     host.innerHTML = `
-      <div class="announcement-empty">
-        <i class="fas fa-calendar-check" aria-hidden="true"></i>
-        <p>No hay eventos programados en los próximos días. Consulta nuestros horarios de servicio.</p>
+      <div class="announcement-empty" style="grid-column: 1 / -1; text-align: center; padding: 2.5rem 1rem;">
+        <i class="fas fa-calendar-check" style="font-size: 2rem; color: var(--primary); margin-bottom: 0.75rem; display: block;" aria-hidden="true"></i>
+        <p style="color: var(--text-muted); font-size: 0.95rem;">No hay eventos programados en los próximos días. Consulta nuestros horarios de servicio regulares.</p>
       </div>
     `;
     return;
@@ -1002,7 +1023,7 @@ function renderDynamicMinistries(ministries) {
   }
 
   // 4. Buenas Nuevas
-  const bn = map.get('buenas-nuevas');
+  const bn = map.get('buenas-nuevas') || map.get('love-buenas-nuevas');
   if (bn) {
     const card = qs('.buenas-nuevas-section .news-card');
     if (card) {
@@ -1016,10 +1037,25 @@ function renderDynamicMinistries(ministries) {
         if (statBoxes[1] && bn.stats.zones) statBoxes[1].querySelector('.stat-number').textContent = bn.stats.zones;
         if (statBoxes[2] && bn.stats.volunteers) statBoxes[2].querySelector('.stat-number').textContent = bn.stats.volunteers;
       }
-      if (bn.imageUrl) {
-        const img = card.querySelector('.news-media-card img');
-        if (img) img.src = bn.imageUrl;
+
+      // Collage de 2 fotos para Buenas Nuevas
+      const bnGallery = qs('#buenas-nuevas-gallery') || card.querySelector('.news-media-grid');
+      if (bnGallery) {
+        const defaults = [
+          './Assets/somos comunidad love/love comunidad (6).jpeg',
+          './Assets/somos comunidad love/love comunidad (7).jpeg'
+        ];
+        const photos = Array.isArray(bn.gallery) && bn.gallery.length
+          ? bn.gallery
+          : (bn.imageUrl ? [bn.imageUrl, defaults[1]] : defaults);
+
+        const imgs = bnGallery.querySelectorAll('img');
+        if (imgs.length >= 2) {
+          if (photos[0] || defaults[0]) imgs[0].src = photos[0] || defaults[0];
+          if (photos[1] || defaults[1]) imgs[1].src = photos[1] || defaults[1];
+        }
       }
+
       const title = bn.name || bn.title;
       if (title) {
         const h3 = card.querySelector('h3');
@@ -1207,6 +1243,150 @@ export function initPublicSync() {
   });
 }
 
+/* --------------------------------------------------------------------------
+   AUTO-REGISTRO PÚBLICO DE VISITANTES (#/registro-asistencia)
+   -------------------------------------------------------------------------- */
+function checkSelfRegistrationHash() {
+  const hash = window.location.hash || '';
+  if (hash.includes('registro-asistencia')) {
+    openSelfRegistrationModal();
+  }
+}
+
+function openSelfRegistrationModal() {
+  const existing = document.getElementById('cl-self-register-modal');
+  if (existing) return;
+
+  const modal = document.createElement('div');
+  modal.id = 'cl-self-register-modal';
+  modal.style.cssText = `
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px);
+    z-index: 99999; display: flex; align-items: center; justify-content: center;
+    padding: 16px; box-sizing: border-box; overflow-y: auto;
+  `;
+
+  modal.innerHTML = `
+    <div style="background: #ffffff; color: #1e293b; max-width: 480px; width: 100%; border-radius: 18px; padding: 28px 24px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); position: relative; font-family: inherit;">
+      <button type="button" id="cl-close-self-reg" style="position: absolute; top: 16px; right: 16px; background: #f1f5f9; border: none; width: 34px; height: 34px; border-radius: 50%; font-size: 1.1rem; color: #64748b; cursor: pointer; display: flex; align-items: center; justify-content: center;">✕</button>
+      
+      <div style="text-align: center; margin-bottom: 20px;">
+        <div style="width: 56px; height: 56px; border-radius: 16px; background: rgba(255, 107, 74, 0.12); color: #ff6b4a; display: inline-flex; align-items: center; justify-content: center; font-size: 1.8rem; margin-bottom: 10px;">
+          <i class="fas fa-church"></i>
+        </div>
+        <h2 style="margin: 0; font-size: 1.35rem; color: #0f172a; font-weight: 700;">¡Bienvenido a Comunidad Love!</h2>
+        <p style="margin: 6px 0 0 0; font-size: 0.88rem; color: #64748b;">Mesa de Bienvenida y Auto-Registro de Asistencia</p>
+      </div>
+
+      <form id="cl-self-reg-form" style="display: flex; flex-direction: column; gap: 14px;">
+        <div>
+          <label style="display: block; font-size: 0.82rem; font-weight: 600; color: #334155; margin-bottom: 4px;">Nombre Completo *</label>
+          <input type="text" name="fullName" required placeholder="Ej: Camilo Pérez" style="width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 0.92rem; outline: none;">
+        </div>
+
+        <div>
+          <label style="display: block; font-size: 0.82rem; font-weight: 600; color: #334155; margin-bottom: 4px;">Documento de Identidad (Cédula / Tarjeta)</label>
+          <input type="tel" name="documentId" placeholder="Ej: 1047123456" style="width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 0.92rem; outline: none;">
+        </div>
+
+        <div>
+          <label style="display: block; font-size: 0.82rem; font-weight: 600; color: #334155; margin-bottom: 4px;">Teléfono / WhatsApp *</label>
+          <input type="tel" name="phone" required placeholder="Ej: 3001234567 (10 dígitos)" maxlength="10" style="width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 0.92rem; outline: none;">
+        </div>
+
+        <div>
+          <label style="display: block; font-size: 0.82rem; font-weight: 600; color: #334155; margin-bottom: 4px;">Barrio / Sector</label>
+          <input type="text" name="neighborhood" placeholder="Ej: Pie de la Popa, Bocagrande, etc." style="width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 0.92rem; outline: none;">
+        </div>
+
+        <button type="submit" id="cl-btn-submit-self-reg" style="margin-top: 8px; padding: 12px 18px; background: #ff6b4a; color: #ffffff; border: none; border-radius: 10px; font-weight: 600; font-size: 0.95rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: background 0.15s;">
+          <i class="fas fa-check"></i><span>Confirmar mi Asistencia</span>
+        </button>
+      </form>
+
+      <div id="cl-self-reg-success" style="display: none; text-align: center; padding: 20px 0;">
+        <div style="font-size: 3rem; color: #10b981; margin-bottom: 12px;">🎉</div>
+        <h3 style="margin: 0; font-size: 1.25rem; color: #0f172a;">¡Registro Exitoso!</h3>
+        <p id="cl-self-reg-success-msg" style="margin: 8px 0 20px 0; font-size: 0.9rem; color: #475569; line-height: 1.5;"></p>
+        <button type="button" id="cl-btn-finish-self-reg" style="padding: 10px 24px; background: #0f172a; color: #ffffff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
+          Entendido
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  const closeModal = () => {
+    modal.remove();
+    if (window.location.hash.includes('registro-asistencia')) {
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+  };
+
+  modal.querySelector('#cl-close-self-reg')?.addEventListener('click', closeModal);
+  modal.querySelector('#cl-btn-finish-self-reg')?.addEventListener('click', closeModal);
+
+  const form = modal.querySelector('#cl-self-reg-form');
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = modal.querySelector('#cl-btn-submit-self-reg');
+    const fd = new FormData(form);
+    const fullName = (fd.get('fullName') || '').toString().trim();
+    const documentId = (fd.get('documentId') || '').toString().trim();
+    const phone = (fd.get('phone') || '').toString().trim();
+    const neighborhood = (fd.get('neighborhood') || '').toString().trim();
+
+    if (!fullName) {
+      showToast('Por favor escribe tu nombre completo.', 'warning');
+      return;
+    }
+    if (phone && phone.replace(/\D/g, '').length !== 10) {
+      showToast('Por favor escribe un número de WhatsApp de 10 dígitos.', 'warning');
+      return;
+    }
+
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando…';
+    }
+
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      await createMember({
+        fullName,
+        documentId,
+        phone,
+        neighborhood,
+        status: 'nuevo',
+        churchRole: 'Nuevo Asistente',
+        firstVisitDate: today,
+        attendanceType: 'solo',
+        attendances: [{
+          date: today,
+          service: 'Servicio Presencial Love',
+          registeredAt: new Date().toISOString()
+        }],
+        lastAttendance: today,
+        attendanceCount: 1
+      });
+
+      form.style.display = 'none';
+      const successDiv = modal.querySelector('#cl-self-reg-success');
+      const msg = modal.querySelector('#cl-self-reg-success-msg');
+      if (msg) msg.textContent = `¡Hola, ${fullName}! Tu asistencia ha sido confirmada en Comunidad Love. Nos alegra mucho tenerte hoy con nosotros.`;
+      if (successDiv) successDiv.style.display = 'block';
+      showToast('¡Asistencia confirmada exitosamente!', 'success');
+    } catch (err) {
+      showToast(err.message || 'Error al guardar el registro.', 'danger');
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-check"></i><span>Confirmar mi Asistencia</span>';
+      }
+    }
+  });
+}
+
 export function stopPublicSync() {
   [settingsUnsub, eventsUnsub, announcementsUnsub, productsUnsub, prayersUnsub, ministriesUnsub, galleryUnsub, birthdaysUnsub].forEach((unsub) => {
     try {
@@ -1224,5 +1404,8 @@ export function stopPublicSync() {
   galleryUnsub = null;
   birthdaysUnsub = null;
 }
+
+window.addEventListener('hashchange', checkSelfRegistrationHash);
+whenReady(checkSelfRegistrationHash);
 
 initPublicSync();

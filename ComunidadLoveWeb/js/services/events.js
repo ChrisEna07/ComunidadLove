@@ -51,7 +51,9 @@ function decorate(id, data) {
     location: data.location || '',
     bannerUrl: data.bannerUrl || '',
     category: data.category || 'general',
-    isActive: data.isActive !== false,
+    isActive: data.isActive !== false && data.status !== 'inactivo',
+    isPublic: data.isPublic !== false,
+    status: data.status || (data.isActive !== false ? 'activo' : 'inactivo'),
     createdAt: toDate(data.createdAt),
     updatedByName: data.updatedByName || ''
   };
@@ -82,7 +84,7 @@ export function watchEvents(callback, onError) {
       collection(db, COLLECTION),
       (snapshot) => {
         const all = snapshot.docs.map((d) => decorate(d.id, d.data()));
-        callback({ all, active: sortByDate(all.filter((e) => e.isActive)) });
+        callback({ all, active: sortByDate(all.filter((e) => e.isActive && e.isPublic !== false)) });
       },
       (error) => {
         console.warn('[CL] Error en tiempo real de eventos:', error);
@@ -135,7 +137,9 @@ function toFirestorePayload(data) {
     location: (data.location || '').trim(),
     bannerUrl: sanitizeImageValue(data.bannerUrl, { field: 'imagen del evento' }),
     category: data.category || 'general',
-    isActive: data.isActive !== false
+    isActive: data.isActive !== false,
+    isPublic: data.isPublic !== false,
+    status: data.status || 'activo'
   };
   if (!payload.title) throw new Error('El título del evento es obligatorio.');
   if (!payload.dateStart) throw new Error('La fecha de inicio es obligatoria.');
