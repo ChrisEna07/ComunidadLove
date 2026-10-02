@@ -1,0 +1,150 @@
+# BARRIDO GENERAL Y CORRECCIONES CRÍTICAS: DATESTART, PERSISTENCIA DE SERVICIOS, SIDEBAR Y ASISTENCIA INTELIGENTE
+
+Aplica de forma integral y obligatoria la solución a los siguientes errores de ejecución, sincronización y diseño en el proyecto:
+
+---
+
+### 1. Fix Crítico: `ev.dateStart.startsWith is not a function` (asistencia.js y seguimiento.js)
+- **Error:** Al entrar a "Registro y Asistencia" o "Seguimiento", la vista colapsa arrojando: `ev.dateStart.startsWith is not a function`.
+- **Causa:** El campo de fecha del evento en Firestore puede ser un `Timestamp` (con método `.toDate()`), una instancia de `Date`, un número o `undefined`, rompiendo la llamada directa a `.startsWith()`.
+- **Acción:**
+  Crear una función utilitaria e implementarla antes de evaluar fechas:
+  ```javascript
+  function toIsoDateString(val) {
+    if (!val) return '';
+    if (typeof val === 'string') return val;
+    if (typeof val.toDate === 'function') return val.toDate().toISOString();
+    if (val instanceof Date) return val.toISOString();
+    try {
+      return new Date(val).toISOString();
+    } catch {
+      return '';
+    }
+  }
+Reemplazar toda ocurrencia de ev.dateStart.startsWith(...) por:
+
+JavaScript
+const eventDateIso = toIsoDateString(ev.dateStart || ev.date || ev.startDate);
+if (eventDateIso.startsWith(todayIsoDate)) {
+  // Lógica de servicio activo
+}
+2. Eliminación Real del Horario del Martes y Sincronización del Calendario (ajustes.js, site.js, public-init.js e index.html)
+Problema: Se eliminó el servicio del martes desde el panel, pero sigue mostrándose en la tarjeta lateral al lado del calendario y marcando los martes en la cuadrícula mensual.
+
+Causa:
+
+En index.html, las tarjetas de reuniones están estáticas en el HTML y el script público no vacía el contenedor antes de renderizar.
+
+En public-init.js, si data.serviceHours o data.services viene vacío o modificado, un operador OR (|| DEFAULT_SERVICES) reactiva la lista quemada por defecto.
+
+Acción:
+
+En public-init.js, antes de insertar las reuniones, limpiar el contenedor:
+
+JavaScript
+const servicesContainer = document.getElementById('services-list');
+if (servicesContainer) {
+  servicesContainer.innerHTML = '';
+}
+Respetar el contenido de Firestore: Si data.serviceHours o data.services es un Array, iterar estrictamente sobre él sin hacer fallback a datos quemados:
+
+JavaScript
+const activeServices = Array.isArray(data.serviceHours) 
+  ? data.serviceHours 
+  : (Array.isArray(data.services) ? data.services : DEFAULT_SERVICES);
+En ajustes.js, asegurar que al eliminar un horario se actualice la base de datos de inmediato con:
+
+JavaScript
+await setDoc(doc(db, "site_settings", "general"), {
+  serviceHours: updatedServicesList,
+  services: updatedServicesList
+}, { merge: true });
+En el generador del calendario dinámico (app.js), evaluar las reuniones activas únicamente a partir del array limpio de Firestore, para que los días martes dejen de proyectarse en la cuadrícula.
+
+3. Corrección de la Barra Lateral (Sidebar) Desalineada (router.js)
+Problema: Estando en la vista de Muro de Clamor (#/oracion), la barra lateral resalta el botón de Auditoría.
+
+Causa: El selector de navegación en router.js usa coincidencias parciales con .includes() o índices fijos, activando el enlace incorrecto.
+
+Acción:
+En router.js, normalizar la comparación de la ruta activa con exactitud estricta:
+
+JavaScript
+function updateSidebarActiveLink(routePath) {
+  const cleanRoute = routePath.replace(/^#\/?/, '').split('?')[0].trim();
+  const navLinks = document.querySelectorAll('.clg-sidebar a, .clg-nav-link, [data-route]');
+  navLinks.forEach((link) => {
+    link.classList.remove('active');
+    const href = (link.getAttribute('href') || link.dataset.route || '').replace(/^#\/?/, '').split('?')[0].trim();
+    if (href === cleanRoute) {
+      link.classList.add('active');
+    }
+  });
+}
+Verificar que el enlace del Muro de Clamor en el HTML tenga estrictamente href="#/oracion" y que Auditoría tenga href="#/auditoria".
+
+4. Sincronización de Próximos Eventos (events.js y public-init.js)
+Problema: Al crear un evento desde el panel administrativo, solo se ve en el calendario pero no aparece en la sección pública de eventos.
+
+Acción:
+
+Al guardar en events.js, asegurar que se persistan los campos:
+{ isPublic: true, status: 'activo', date: dateValue, createdAt: Timestamp.now() }.
+
+En public-init.js, verificar que la consulta del contenedor #upcoming-events escuche en tiempo real (onSnapshot) sin filtros excluyentes de hora que descarten eventos del día presente o futuro.
+
+5. Buenas Nuevas: Collage de 2 Fotos y Conservación de Imágenes Vacías
+Acción:
+
+En ajustes.js, en la sección del ministerio Buenas Nuevas (docId: 'love-buenas-nuevas'), habilitar dos controles de carga/enlace: Foto 1 y Foto 2 (gallery: [img1, img2]).
+
+En public-init.js e index.html, enlazar ambas imágenes dinámicamente en el contenedor #buenas-nuevas-gallery.
+
+No vaciar imágenes: En todos los formularios de Ajustes y Ministerios, si el usuario modifica un texto y deja el campo de URL/imagen en blanco, mantener la imagen que ya existía en Firestore:
+
+JavaScript
+const finalImage = (inputUrl && inputUrl.trim().length > 0)
+  ? normalizeImageUrl(inputUrl.trim())
+  : (currentDocData.imageUrl || currentDocData.photoUrl || '');
+6. Módulo Inteligente de Registro y Asistencia (asistencia.js)
+Modal de Código QR:
+
+Botón superior: [ 📱 Código QR de Registro ].
+
+Mostrar modal con código QR apuntando a https://comunidad-love.vercel.app/#/registro-asistencia para que los asistentes se registren desde su celular.
+
+Búsqueda Reactiva Multicriterio:
+
+Input de búsqueda en vivo que filtre por: Cédula / Documento, Nombre, Apellido o Teléfono.
+
+Si ya existe: Mostrar tarjeta de datos y botón [ ✅ Está Aquí / Confirmar Asistencia ] (guardando fecha, hora y servicio de manera atómica).
+
+Si NO existe: Mostrar aviso "Persona no registrada. ¿Es su primera vez?" con botón directo [ + Registrar como Nuevo Visitante ].
+
+Filtros por Ministerio y Tooltips:
+
+Pestañas de filtrado: Todos, General, Kids, Adora, Mujeres, Jóvenes, Servidores, Cumpleaños.
+
+Agregar burbujas pedagógicas (?) con tooltips en cada campo para guiar a los servidores en puerta.
+
+Alerta Pastoral de Inasistencia (Seguimiento):
+
+En seguimiento.js, listar a miembros activos con 3 o más servicios sin registrar asistencia.
+
+Incluir botón directo de WhatsApp con mensaje precargado de saludo pastoral: "Hola [Nombre], te extrañamos en Comunidad Love...".
+
+7. Tarjetas de Resumen Interactivas (resumen.js)
+Asegurar que al hacer clic en las tarjetas de estadísticas del dashboard principal se redirija a:
+
+Miembros registrados ➔ #/asistencia
+
+Cumpleaños de la semana ➔ #/asistencia?tab=cumpleanos
+
+Eventos activos ➔ #/eventos
+
+Avisos publicados ➔ #/avisos
+
+8. Verificación Final de Compilación
+Ejecutar validación de sintaxis con node --check sobre todos los archivos intervenidos.
+
+Realizar commit y desplegar a la rama principal para que Vercel actualice la versión en producción.

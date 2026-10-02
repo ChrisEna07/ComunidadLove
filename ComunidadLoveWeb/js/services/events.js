@@ -84,7 +84,7 @@ export function watchEvents(callback, onError) {
       collection(db, COLLECTION),
       (snapshot) => {
         const all = snapshot.docs.map((d) => decorate(d.id, d.data()));
-        callback({ all, active: sortByDate(all.filter((e) => e.isActive && e.isPublic !== false)) });
+        callback({ all, active: sortByDate(all.filter((e) => e.isActive !== false && e.isPublic !== false && e.status !== 'inactivo')) });
       },
       (error) => {
         console.warn('[CL] Error en tiempo real de eventos:', error);
@@ -129,11 +129,13 @@ export function eventsOnDay(events, date) {
 }
 
 function toFirestorePayload(data) {
+  const dateVal = data.dateStart || data.date || data.startDate || null;
   const payload = {
     title: (data.title || '').trim(),
     description: (data.description || '').trim(),
-    dateStart: data.dateStart || null,
-    dateEnd: data.dateEnd || data.dateStart || null,
+    dateStart: dateVal,
+    dateEnd: data.dateEnd || dateVal || null,
+    date: dateVal,
     location: (data.location || '').trim(),
     bannerUrl: sanitizeImageValue(data.bannerUrl, { field: 'imagen del evento' }),
     category: data.category || 'general',

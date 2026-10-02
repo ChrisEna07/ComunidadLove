@@ -283,7 +283,8 @@ function openForm(event, container, drawerHost) {
 
     let bannerUrl = '';
     try {
-      bannerUrl = prepareImageValue(data['ev-bannerUrl']);
+      const rawBanner = (data['ev-bannerUrl'] || '').trim();
+      bannerUrl = rawBanner ? prepareImageValue(rawBanner) : (eventToEdit?.bannerUrl || '');
     } catch (error) {
       markInvalid(form, error.message);
       return;

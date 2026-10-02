@@ -7,7 +7,7 @@ import { watchSession, signOut, can, roleLabel, updateUserPassword } from '../li
 import { updateOwnProfile } from '../services/users.js';
 import { escapeHTML, qs, qsa, showToast } from '../lib/dom.js';
 import { installImageFallback } from '../lib/image.js';
-import { defineRoute, setNotFound, startRouter, navigate } from './router.js';
+import { defineRoute, setNotFound, startRouter, navigate, updateSidebarActiveLink } from './router.js';
 import { subscribe, getState, setSession, startDataStream, stopDataStream } from './store.js';
 import { renderLogin } from './views/login.js';
 import { renderPanel } from './views/panel.js';
@@ -440,9 +440,13 @@ function openMyProfileModal(profile) {
 
 function syncActiveNav() {
   const active = document.body.dataset.clgRoute;
-  qsa('[data-nav]', root).forEach((link) => {
-    link.classList.toggle('is-active', link.dataset.nav === active);
-  });
+  if (active) {
+    updateSidebarActiveLink(active);
+  } else {
+    qsa('[data-nav]', root).forEach((link) => {
+      link.classList.remove('active', 'is-active');
+    });
+  }
 }
 
 function initials(name) {

@@ -64,6 +64,23 @@ export function toISODate(date) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+export function toIsoDateString(val) {
+  if (!val) return '';
+  if (typeof val === 'string') return val;
+  if (typeof val.toDate === 'function') {
+    try { return val.toDate().toISOString(); } catch {}
+  }
+  if (val instanceof Date) {
+    return Number.isNaN(val.getTime()) ? '' : val.toISOString();
+  }
+  try {
+    const d = new Date(val);
+    return Number.isNaN(d.getTime()) ? '' : d.toISOString();
+  } catch {
+    return '';
+  }
+}
+
 export function formatDate(value) {
   const d = toDate(value);
   if (!d) return '—';

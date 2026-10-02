@@ -40,7 +40,8 @@ import {
   ageFrom,
   birthdayLabel,
   daysToBirthday,
-  toISODate
+  toISODate,
+  toIsoDateString
 } from '../../lib/dates.js';
 import { subscribe, leaders } from '../store.js';
 import { bindImageInputs, imageInput, prepareImageValue } from '../image-input.js';

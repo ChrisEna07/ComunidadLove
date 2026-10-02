@@ -329,7 +329,8 @@
   background: rgba(255, 255, 255, 0.08);
   color: #fff;
 }
-.clg-nav-link.is-active {
+.clg-nav-link.is-active,
+.clg-nav-link.active {
   background: var(--clg-primary);
   color: #fff;
   font-weight: 600;

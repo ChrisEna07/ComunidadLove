@@ -65,6 +65,7 @@ async function render(path, params) {
   outlet.innerHTML = '';
   activeRoute = path;
   document.body.dataset.clgRoute = path;
+  updateSidebarActiveLink(path);
 
   const profile = getProfile();
   const isSuperOnly = entry && entry.permission === 'superadmin.only';
@@ -132,4 +133,16 @@ export function startRouter(element, onChange) {
 
 export function routeIsActive(path) {
   return activeRoute === path;
+}
+
+export function updateSidebarActiveLink(routePath) {
+  const cleanRoute = (routePath || '').replace(/^#\/?/, '').split('?')[0].trim();
+  const navLinks = document.querySelectorAll('.clg-sidebar a, .clg-nav-link, [data-route], [data-nav]');
+  navLinks.forEach((link) => {
+    link.classList.remove('active', 'is-active');
+    const href = (link.getAttribute('href') || link.dataset.route || link.dataset.nav || '').replace(/^#\/?/, '').split('?')[0].trim();
+    if (href === cleanRoute) {
+      link.classList.add('active', 'is-active');
+    }
+  });
 }

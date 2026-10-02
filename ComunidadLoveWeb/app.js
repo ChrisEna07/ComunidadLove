@@ -325,10 +325,9 @@ function initCalendar() {
     if (recurringEvent) return recurringEvent;
 
     // 3) Coincidencia recurrente en horarios de reunión de la tarjeta izquierda
-    const allServiceCards = [
-      ...externalServiceHours,
-      ...getServicesListFromDOM()
-    ];
+    const allServiceCards = (window.__CL_SERVICES_SYNCED__ || externalServiceHours.length > 0)
+      ? externalServiceHours
+      : getServicesListFromDOM();
     const recurringService = allServiceCards.find((srv) => {
       const recDay = getRecurringDayFromItem(srv);
       return recDay !== null && recDay === dayOfWeek;
@@ -527,6 +526,7 @@ function initCalendar() {
       return externalEvents;
     },
     setServiceHours(list) {
+      window.__CL_SERVICES_SYNCED__ = true;
       externalServiceHours = Array.isArray(list) ? list : [];
       renderCalendar(currentMonth, currentYear);
     },

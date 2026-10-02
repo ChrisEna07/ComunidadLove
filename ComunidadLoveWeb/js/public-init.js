@@ -113,6 +113,7 @@ function renderBannerAlert(settings) {
 function renderServiceHours(settings) {
   const host = qs('#services-list');
   if (!host) return;
+  host.innerHTML = '';
   const hours = Array.isArray(settings.serviceHours)
     ? settings.serviceHours
     : (Array.isArray(settings.services) ? settings.services : []);
@@ -258,8 +259,9 @@ function renderUpcomingEvents(events) {
 
   const list = (events || [])
     .filter((event) => {
-      if (!event.dateStart) return false;
-      const start = parseDate(event.dateStart);
+      const dateVal = event.dateStart || event.date || event.startDate;
+      if (!dateVal) return false;
+      const start = parseDate(dateVal);
       if (!start) return false;
       const end = event.dateEnd ? parseDate(event.dateEnd) : start;
       const endTime = end ? end.getTime() : start.getTime();

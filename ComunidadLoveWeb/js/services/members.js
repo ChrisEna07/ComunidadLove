@@ -462,11 +462,12 @@ export function getAbsenteeMembers(members, threshold = 3) {
   return (members || []).filter((m) => {
     if (m.status !== 'activo' && m.churchRole !== 'Miembro Activo') return false;
     if (!m.lastAttendance) {
-      const created = m.createdAt ? new Date(m.createdAt).getTime() : 0;
+      const created = toDate(m.createdAt)?.getTime() || 0;
       return created > 0 && (now - created) >= thresholdMs;
     }
-    const lastTime = new Date(m.lastAttendance).getTime();
-    return !isNaN(lastTime) && (now - lastTime) >= thresholdMs;
+    const lastDate = toDate(m.lastAttendance);
+    const lastTime = lastDate ? lastDate.getTime() : 0;
+    return lastTime > 0 && (now - lastTime) >= thresholdMs;
   });
 }
 

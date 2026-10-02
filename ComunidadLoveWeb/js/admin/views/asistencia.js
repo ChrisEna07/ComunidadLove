@@ -35,6 +35,7 @@ import {
 import { pageHeader, card, tag, emptyState, field, checkboxField, readForm, setLoading } from '../ui.js';
 import { memberAvatar } from './panel.js';
 import { navigate } from '../router.js';
+import { toIsoDateString } from '../../lib/dates.js';
 
 const MINISTRY_TABS = [
   { value: 'todos', label: 'Todos', icon: 'fa-users' },
@@ -171,7 +172,8 @@ export function renderAsistencia(container, { params } = {}) {
 
     // 2. Buscar en eventos de hoy
     const matchingEvent = (events || []).find((ev) => {
-      return ev.dateStart && ev.dateStart.startsWith(todayDateISO);
+      const eventDateIso = toIsoDateString(ev.dateStart || ev.date || ev.startDate);
+      return eventDateIso.startsWith(todayDateISO);
     });
 
     if (matchingEvent) {
@@ -285,7 +287,10 @@ export function renderAsistencia(container, { params } = {}) {
         ${filtered.map((member) => {
           const isCand = isCandidateForRegularMember(member);
           const attendances = Array.isArray(member.attendances) ? member.attendances : [];
-          const attendedToday = attendances.some((a) => (a.date || a.timestamp || '').startsWith(todayISO));
+          const attendedToday = attendances.some((a) => {
+            const attDateIso = toIsoDateString(a.date || a.timestamp);
+            return attDateIso.startsWith(todayISO);
+          });
           const totalAtt = member.attendanceCount || attendances.length;
 
           return `

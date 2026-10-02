@@ -571,9 +571,32 @@ export function renderAjustes(container) {
       row.querySelector('[name$="-day"]')?.focus();
     });
 
-    list?.addEventListener('click', (event) => {
+    list?.addEventListener('click', async (event) => {
       const button = event.target.closest('[data-remove-hour]');
-      if (button) button.closest('.clg-hour-row')?.remove();
+      if (!button) return;
+      button.closest('.clg-hour-row')?.remove();
+
+      try {
+        const data = readForm(form);
+        const updatedServicesList = qsa('.clg-hour-row', form).map((row) => {
+          const keys = row.querySelector('[name$="-day"]')?.name.split('-')[0] || '';
+          return {
+            day: data[`${keys}-day`] || '',
+            time: data[`${keys}-time`] || '',
+            label: data[`${keys}-label`] || '',
+            description: data[`${keys}-description`] || ''
+          };
+        });
+
+        await saveSettings({
+          serviceHours: updatedServicesList,
+          services: updatedServicesList
+        });
+        showToast('Horario eliminado y actualizado en Firestore.', 'info');
+      } catch (err) {
+        console.error('[CL] Error al eliminar horario:', err);
+        showToast('Error al persistir la eliminación del horario.', 'danger');
+      }
     });
 
     form?.addEventListener('submit', async (event) => {
