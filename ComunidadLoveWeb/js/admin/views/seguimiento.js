@@ -65,7 +65,7 @@ export function renderSeguimiento(container, { params }) {
   container.innerHTML = `
     ${pageHeader({
       title: 'Seguimiento de Miembros',
-      subtitle: 'Busca, felicipta y registra el acompañamiento pastoral',
+      subtitle: 'Busca, felicita y registra el acompañamiento pastoral',
       icon: 'fa-address-book'
     })}
     <div id="clg-seg-toolbar" class="clg-toolbar">

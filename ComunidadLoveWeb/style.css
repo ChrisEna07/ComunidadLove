@@ -2704,16 +2704,30 @@ section:not(.hero).reveal-visible {
 /* --------------------------------------------------------------------------
    AVISO INSTITUCIONAL SUPERIOR
    -------------------------------------------------------------------------- */
+.site-banner-alert,
+#announcement-bar,
+.cl-alert-banner,
 .cl-banner {
   font-family: var(--font-body);
   font-size: 0.9rem;
   font-weight: 500;
-  position: relative;
-  z-index: 1002;
+  position: sticky;
+  top: 0;
+  left: 0;
   width: 100%;
+  z-index: 10000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: transform 0.2s ease;
 }
+.site-banner-alert[hidden],
+#announcement-bar[hidden],
+.cl-alert-banner[hidden],
 .cl-banner[hidden] {
-  display: none;
+  display: none !important;
+}
+
+#cl-banner-alert:not([hidden]) + header {
+  top: var(--cl-banner-height, 42px);
 }
 .cl-banner-info {
   background: var(--secondary);
@@ -3538,4 +3552,76 @@ textarea.is-invalid {
   font-weight: 500;
   display: block;
   margin-top: 4px;
+}
+
+/* ==========================================================================
+   AJUSTE RESPONSIVE MÓVIL Y PULIDO VISUAL (< 768px)
+   ========================================================================== */
+@media (max-width: 768px) {
+  .container, .main-content, section, .section {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Tarjetas de Avisos, Eventos y Servicios */
+  .notice-card, .service-card, .event-card, .clg-card, .announcement-card, .upcoming-card {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    width: 100% !important;
+    padding: 1.25rem !important;
+    border-radius: 16px !important;
+    box-sizing: border-box !important;
+  }
+
+  .event-card .event-date-badge,
+  .upcoming-card .upcoming-date {
+    margin: 0 !important;
+  }
+
+  .event-card .event-card-content,
+  .upcoming-card .upcoming-body {
+    padding: 0.75rem 0 0 0 !important;
+  }
+
+  /* Títulos y Espaciados */
+  h1, .section-title {
+    font-size: 1.75rem !important;
+    line-height: 1.25 !important;
+  }
+  h2 {
+    font-size: 1.4rem !important;
+  }
+  p {
+    font-size: 0.95rem !important;
+    line-height: 1.5 !important;
+  }
+
+  /* Calendario en móvil */
+  .calendar-grid, .calendar-table, .calendar-days {
+    gap: 4px !important;
+    padding: 0.5rem 0 !important;
+  }
+  .calendar-day-cell, .calendar-day {
+    min-height: 42px !important;
+    font-size: 0.85rem !important;
+    border-radius: 8px !important;
+  }
+  .calendar-container {
+    padding: 1rem !important;
+    border-radius: 16px !important;
+  }
+
+  /* Grids en columna única para prevenir desbordes */
+  .events-grid,
+  .upcoming-grid,
+  .upcoming-events,
+  #upcoming-events,
+  .announcements-grid,
+  .calendar-grid {
+    grid-template-columns: 1fr !important;
+    width: 100% !important;
+  }
 }

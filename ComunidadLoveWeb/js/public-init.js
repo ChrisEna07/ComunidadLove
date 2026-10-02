@@ -70,18 +70,20 @@ function warnOnce(scope = 'general') {
    AVISO SUPERIOR (bannerAlert)
    -------------------------------------------------------------------------- */
 function renderBannerAlert(settings) {
-  const host = qs('#cl-banner-alert');
+  const host = qs('#cl-banner-alert') || qs('.site-banner-alert') || qs('#announcement-bar');
   if (!host) return;
   const alert = settings.bannerAlert || {};
   if (!alert.show || !alert.message) {
     host.hidden = true;
     host.innerHTML = '';
+    document.documentElement.style.setProperty('--cl-banner-height', '0px');
     return;
   }
   try {
     const dismissed = sessionStorage.getItem('cl_dismissed_banner');
     if (dismissed === alert.message) {
       host.hidden = true;
+      document.documentElement.style.setProperty('--cl-banner-height', '0px');
       return;
     }
   } catch {}
@@ -89,7 +91,7 @@ function renderBannerAlert(settings) {
   const type = ['info', 'warning'].includes(alert.type) ? alert.type : 'info';
   const icon = type === 'warning' ? 'fa-triangle-exclamation' : 'fa-circle-info';
   host.hidden = false;
-  host.className = `cl-banner cl-banner-${type}`;
+  host.className = `cl-banner cl-banner-${type} site-banner-alert cl-alert-banner`;
   host.innerHTML = `
     <div class="container cl-banner-inner">
       <i class="fas ${icon}" aria-hidden="true"></i>
@@ -101,8 +103,13 @@ function renderBannerAlert(settings) {
       </button>
     </div>
   `;
+  requestAnimationFrame(() => {
+    const h = host.offsetHeight || 42;
+    document.documentElement.style.setProperty('--cl-banner-height', `${h}px`);
+  });
   host.querySelector('.cl-banner-close')?.addEventListener('click', () => {
     host.hidden = true;
+    document.documentElement.style.setProperty('--cl-banner-height', '0px');
     try { sessionStorage.setItem('cl_dismissed_banner', alert.message); } catch {}
   });
 }
