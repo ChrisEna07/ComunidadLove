@@ -291,9 +291,17 @@ function renderShell() {
   qs('[data-action="toggle-sidebar"]', root)?.addEventListener('click', toggleSidebar);
   qs('[data-action="close-sidebar"]', root)?.addEventListener('click', closeSidebar);
   
-  // Delegación asíncrona optimizada para INP en enlaces de navegación
+  // Delegación optimizada para INP: respuesta táctil inmediata (< 16ms)
   root.addEventListener('click', (e) => {
-    if (e.target.closest('.clg-nav-link')) {
+    const link = e.target.closest('.clg-nav-link');
+    if (link) {
+      const href = (link.getAttribute('href') || link.dataset.route || link.dataset.nav || '')
+        .replace(/^#\/?/, '')
+        .split('?')[0]
+        .trim();
+      if (href) {
+        updateSidebarActiveLink(href);
+      }
       requestAnimationFrame(() => closeSidebar());
     }
   }, { passive: true });

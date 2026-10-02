@@ -36,7 +36,9 @@ function parseHash() {
 }
 
 export function navigate(path) {
-  const target = `#/${String(path).replace(/^#?\/?/, '')}`;
+  const clean = String(path).replace(/^#?\/?/, '');
+  updateSidebarActiveLink(clean.split('?')[0]);
+  const target = `#/${clean}`;
   if (window.location.hash === target) {
     resolve();
   } else {
@@ -62,7 +64,11 @@ async function render(path, params) {
     }
   }
   currentCleanup = null;
-  outlet.innerHTML = '';
+  outlet.innerHTML = `
+    <div class="clg-view-loader" style="display:flex;align-items:center;justify-content:center;min-height:160px;color:var(--clg-muted,#94a3b8);gap:10px;">
+      <i class="fas fa-circle-notch fa-spin"></i><span>Cargando…</span>
+    </div>
+  `;
   activeRoute = path;
   document.body.dataset.clgRoute = path;
   updateSidebarActiveLink(path);
@@ -109,11 +115,27 @@ async function render(path, params) {
   }
 }
 
-function resolve() {
+let currentNavId = 0;
+
+async function resolve() {
+  const navId = ++currentNavId;
   const { path, params } = parseHash();
-  requestAnimationFrame(() => {
-    render(path, params);
-  });
+
+  // 1. Respuesta visual instantánea en la UI (< 16ms)
+  updateSidebarActiveLink(path);
+
+  // 2. Ceder el hilo principal para evitar bloqueo de INP
+  if (typeof scheduler !== 'undefined' && typeof scheduler.yield === 'function') {
+    await scheduler.yield();
+  } else {
+    await new Promise((r) => setTimeout(r, 0));
+  }
+
+  // Si otra navegación más reciente comenzó mientras se cedía el hilo, descartar
+  if (navId !== currentNavId) return;
+
+  // 3. Renderizar la vista diferida
+  await render(path, params);
 }
 
 export function startRouter(element, onChange) {
@@ -138,11 +160,16 @@ export function routeIsActive(path) {
 export function updateSidebarActiveLink(routePath) {
   const cleanRoute = (routePath || '').replace(/^#\/?/, '').split('?')[0].trim();
   const navLinks = document.querySelectorAll('.clg-sidebar a, .clg-nav-link, [data-route], [data-nav]');
-  navLinks.forEach((link) => {
-    link.classList.remove('active', 'is-active');
-    const href = (link.getAttribute('href') || link.dataset.route || link.dataset.nav || '').replace(/^#\/?/, '').split('?')[0].trim();
+  for (let i = 0; i < navLinks.length; i++) {
+    const link = navLinks[i];
+    const href = (link.getAttribute('href') || link.dataset.route || link.dataset.nav || '')
+      .replace(/^#\/?/, '')
+      .split('?')[0]
+      .trim();
     if (href === cleanRoute) {
       link.classList.add('active', 'is-active');
+    } else {
+      link.classList.remove('active', 'is-active');
     }
-  });
+  }
 }
